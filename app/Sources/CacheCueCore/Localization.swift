@@ -1,0 +1,1191 @@
+import Foundation
+
+/// The twenty languages the app speaks.
+public enum Language: String, CaseIterable, Identifiable {
+    case en, zhHans = "zh-Hans", zhHant = "zh-Hant", ja, ko, de, fr, es, pt, it, nl, sv, pl, ru, tr, id = "id", vi, th, hi, ar
+
+    public var id: String { rawValue }
+
+    /// The language's own name for itself, as a language picker lists it.
+    public var nativeName: String {
+        switch self {
+        case .en: return "English"
+        case .zhHans: return "简体中文"
+        case .zhHant: return "繁體中文"
+        case .ja: return "日本語"
+        case .ko: return "한국어"
+        case .de: return "Deutsch"
+        case .fr: return "Français"
+        case .es: return "Español"
+        case .pt: return "Português"
+        case .it: return "Italiano"
+        case .nl: return "Nederlands"
+        case .sv: return "Svenska"
+        case .pl: return "Polski"
+        case .ru: return "Русский"
+        case .tr: return "Türkçe"
+        case .id: return "Bahasa Indonesia"
+        case .vi: return "Tiếng Việt"
+        case .th: return "ไทย"
+        case .hi: return "हिन्दी"
+        case .ar: return "العربية"
+        }
+    }
+
+    public var isRightToLeft: Bool { self == .ar }
+
+    /// The stored choice that means "whatever the system is set to".
+    public static let system = "system"
+
+    /// The language for a stored choice: the one named, or the system's.
+    public static func resolve(choice: String?, preferred: [String] = Locale.preferredLanguages) -> Language {
+        if let choice, let named = Language(rawValue: choice) { return named }
+        return resolve(preferred: preferred)
+    }
+
+    /// The first of the system's preferred languages the app has; English when it has none.
+    public static func resolve(preferred: [String]) -> Language {
+        for identifier in preferred {
+            let parts = identifier.split(separator: "-").map(String.init)
+            guard let code = parts.first?.lowercased() else { continue }
+            if code == "zh" {
+                // A script subtag decides; without one, the regions that write Traditional do.
+                let rest = parts.dropFirst().map { $0.lowercased() }
+                if rest.contains("hant") { return .zhHant }
+                if rest.contains("hans") { return .zhHans }
+                return rest.contains(where: { ["tw", "hk", "mo"].contains($0) }) ? .zhHant : .zhHans
+            }
+            if let match = Language(rawValue: code) { return match }
+        }
+        return .en
+    }
+}
+
+/// Every piece of text the popover shows. `%@` and `%d` mark where a value goes.
+public struct Strings: Equatable {
+    public var fiveHourTitle: String
+    public var sevenDayTitle: String
+    public var used: String
+    public var noReading: String
+    /// `%@` is a span such as `4h36m`.
+    public var resetsIn: String
+    public var resetsSoon: String
+    public var currentSession: String
+    public var otherSessions: String
+    public var terminal: String
+    public var desktop: String
+    public var turnHit: String
+    public var avgHit: String
+    public var cost: String
+    public var context: String
+    /// Follows the countdown: `47:36 until cache expires`.
+    public var cacheExpiresCaption: String
+    public var cacheActive: String
+    public var cacheExpired: String
+    public var cacheUnknown: String
+    /// `%d` is how many sessions are listed.
+    public var activeCount: String
+    public var idle: String
+    public var emptyTitle: String
+    public var emptyHint: String
+    public var launchAtLogin: String
+    public var quit: String
+    public var language: String
+    public var followSystem: String
+    public var appearance: String
+    public var themeSystem: String
+    public var themeLight: String
+    public var themeDark: String
+    /// `%@` is the system's own description of what went wrong.
+    public var loginError: String
+
+    // When to /compact: a headline and the reason for it, per situation.
+    public var adviceTitle: String
+    public var adviceRunning: String
+    public var adviceRunningDetail: String
+    public var adviceNotNeeded: String
+    /// `%@` is the context size, such as `38.2k`.
+    public var adviceNotNeededDetail: String
+    public var adviceOptional: String
+    public var adviceOptionalDetail: String
+    public var adviceWorthIt: String
+    public var adviceWorthItDetail: String
+    public var adviceBeforeExpiry: String
+    /// `%@` is the countdown, such as `08:12`.
+    public var adviceBeforeExpiryDetail: String
+    public var adviceCold: String
+    public var adviceColdDetail: String
+    public var adviceNearFull: String
+    /// `%d` is how full the context window is, in percent.
+    public var adviceNearFullDetail: String
+
+    public var copyCompact: String
+    public var copied: String
+
+    // Setting up the terminal status line.
+    public var setupTitle: String
+    public var setupButton: String
+    public var setupDone: String
+    public var setupReplace: String
+    public var cancel: String
+    /// `%@` is what went wrong.
+    public var setupFailed: String
+
+    // The guide: lessons on spending fewer tokens.
+    public var guideTitle: String
+    public var back: String
+    public var previous: String
+    public var next: String
+    public var takeaway: String
+    public var readDocs: String
+    public var why: String
+
+    // Updates, pinning a session, and what the dollar figure is on a subscription.
+    /// `%@` is the new version, such as `1.0.3`.
+    public var updateAvailable: String
+    public var download: String
+    public var checkUpdates: String
+    public var pinned: String
+    public var followLatest: String
+    public var costEquivalent: String
+
+    public func source(_ source: String) -> String {
+        switch source {
+        case "terminal": return terminal
+        case "desktop": return desktop
+        default: return source
+        }
+    }
+
+    /// `Resets in 4h36m`, or `Resets soon` inside the last minute.
+    public func reset(in interval: TimeInterval) -> String {
+        interval < 60 ? resetsSoon : String(format: resetsIn, Format.reset(interval))
+    }
+
+    public static func of(_ language: Language) -> Strings {
+        switch language {
+        case .en: return en
+        case .zhHans: return zhHans
+        case .zhHant: return zhHant
+        case .ja: return ja
+        case .ko: return ko
+        case .de: return de
+        case .fr: return fr
+        case .es: return es
+        case .pt: return pt
+        case .it: return it
+        case .nl: return nl
+        case .sv: return sv
+        case .pl: return pl
+        case .ru: return ru
+        case .tr: return tr
+        case .id: return id
+        case .vi: return vi
+        case .th: return th
+        case .hi: return hi
+        case .ar: return ar
+        }
+    }
+}
+
+extension Strings {
+    static let en = Strings(
+        fiveHourTitle: "5-Hour Limit", sevenDayTitle: "7-Day Limit", used: "Used", noReading: "No reading yet",
+        resetsIn: "Resets in %@", resetsSoon: "Resets soon",
+        currentSession: "Current session", otherSessions: "Other sessions", terminal: "Terminal", desktop: "Desktop",
+        turnHit: "Turn cache hit", avgHit: "Avg cache hit", cost: "Session cost", context: "Context",
+        cacheExpiresCaption: "until cache expires", cacheActive: "Running · cache in use",
+        cacheExpired: "Cache expired", cacheUnknown: "Timer starts after the next turn",
+        activeCount: "%d active", idle: "Idle",
+        emptyTitle: "No active sessions in the last 24 hours",
+        emptyHint: "Send a message in any Claude Code session and its figures show up here.",
+        launchAtLogin: "Launch at login", quit: "Quit", language: "Language", followSystem: "System",
+        appearance: "Appearance", themeSystem: "Match system", themeLight: "Light", themeDark: "Dark",
+        loginError: "Couldn't change Launch at login: %@",
+        adviceTitle: "When to /compact",
+        adviceRunning: "Turn in progress",
+        adviceRunningDetail: "Advice returns when this turn ends.",
+        adviceNotNeeded: "No need to compact",
+        adviceNotNeededDetail: "Context is only %@. Compacting would cost more than it saves.",
+        adviceOptional: "Compact only when switching tasks",
+        adviceOptionalDetail: "At %@ the saving is modest. For unrelated work, /clear is free.",
+        adviceWorthIt: "Compact at the next stopping point",
+        adviceWorthItDetail: "Every request re-reads %@. Do it between tasks, not mid-task, while the cache is warm.",
+        adviceBeforeExpiry: "Stepping away? Compact now",
+        adviceBeforeExpiryDetail: "Cache expires in %@. Compacting while it is warm costs a fraction of doing it later. Still working? Keep going: each message resets the clock.",
+        adviceCold: "Cache expired: decide before you continue",
+        adviceColdDetail: "Your next message reprocesses all %@ either way. Done with this history? /clear is free. Otherwise /compact first, so everything after is cheaper.",
+        adviceNearFull: "Compact now, on your terms",
+        adviceNearFullDetail: "Context is %d%% full. Auto-compact will soon pick its own moment, possibly mid-task.",
+        copyCompact: "Copy /compact",
+        copied: "Copied",
+        setupTitle: "Terminal status line is not set up",
+        setupButton: "Set up",
+        setupDone: "Done. Restart your terminal sessions to see it.",
+        setupReplace: "Another status line is configured. Replace it? settings.json is backed up first.",
+        cancel: "Cancel",
+        setupFailed: "Setup failed: %@",
+        guideTitle: "Token-saving guide",
+        back: "Back",
+        previous: "Previous",
+        next: "Next",
+        takeaway: "Key takeaway",
+        readDocs: "Read the docs",
+        why: "Why?",
+        updateAvailable: "Update available: %@",
+        download: "Download",
+        checkUpdates: "Check for updates",
+        pinned: "Pinned",
+        followLatest: "Follow latest",
+        costEquivalent: "API-rate value")
+
+    static let zhHans = Strings(
+        fiveHourTitle: "5 小时额度", sevenDayTitle: "7 天额度", used: "已用", noReading: "暂无读数",
+        resetsIn: "%@ 后重置", resetsSoon: "即将重置",
+        currentSession: "当前会话", otherSessions: "其他会话", terminal: "终端", desktop: "桌面",
+        turnHit: "本轮命中", avgHit: "平均命中", cost: "本次花费", context: "上下文",
+        cacheExpiresCaption: "后缓存过期", cacheActive: "运行中 · 缓存使用中",
+        cacheExpired: "缓存已过期", cacheUnknown: "下一轮后开始计时",
+        activeCount: "%d 个活跃", idle: "空闲",
+        emptyTitle: "近 24 小时没有活跃会话",
+        emptyHint: "在任意 Claude Code 会话里发一条消息,这里就会出现数据。",
+        launchAtLogin: "登录时启动", quit: "退出", language: "语言", followSystem: "跟随系统",
+        appearance: "外观", themeSystem: "跟随系统", themeLight: "浅色", themeDark: "深色",
+        loginError: "无法更改“登录时启动”:%@",
+        adviceTitle: "何时 /compact",
+        adviceRunning: "本轮进行中",
+        adviceRunningDetail: "这一轮结束后再给建议。",
+        adviceNotNeeded: "不用压缩",
+        adviceNotNeededDetail: "上下文只有 %@,压缩的开销比省下的还多。",
+        adviceOptional: "只在换任务时压缩",
+        adviceOptionalDetail: "%@ 的上下文省不了多少。无关的新任务直接 /clear,不花钱。",
+        adviceWorthIt: "在下一个停顿点压缩",
+        adviceWorthItDetail: "每次请求都要重读 %@。趁缓存还热,在任务之间做,别在任务中途。",
+        adviceBeforeExpiry: "要离开?现在压缩",
+        adviceBeforeExpiryDetail: "缓存 %@ 后过期。趁热压缩只花过期后的一小部分。还在干活就继续,每条消息都会重新计时。",
+        adviceCold: "缓存已过期:继续之前先决定",
+        adviceColdDetail: "下一条消息无论如何都要重新处理全部 %@。不需要这段历史就 /clear(免费);需要就先 /compact,之后每条都更便宜。",
+        adviceNearFull: "现在压缩,自己挑时机",
+        adviceNearFullDetail: "上下文已用 %d%%。自动压缩很快会自己挑时机,可能正好在任务中途。",
+        copyCompact: "复制 /compact",
+        copied: "已复制",
+        setupTitle: "终端状态栏尚未配置",
+        setupButton: "配置",
+        setupDone: "已完成。重启终端里的会话即可看到。",
+        setupReplace: "已配置了别的状态栏,要替换吗?会先备份 settings.json。",
+        cancel: "取消",
+        setupFailed: "配置失败:%@",
+        guideTitle: "省 token 教程",
+        back: "返回",
+        previous: "上一课",
+        next: "下一课",
+        takeaway: "要点",
+        readDocs: "查看官方文档",
+        why: "为什么?",
+        updateAvailable: "有新版本:%@",
+        download: "下载",
+        checkUpdates: "自动检查更新",
+        pinned: "已固定",
+        followLatest: "跟随最新",
+        costEquivalent: "按 API 价折算")
+
+    static let zhHant = Strings(
+        fiveHourTitle: "5 小時額度", sevenDayTitle: "7 天額度", used: "已用", noReading: "暫無讀數",
+        resetsIn: "%@ 後重置", resetsSoon: "即將重置",
+        currentSession: "目前工作階段", otherSessions: "其他工作階段", terminal: "終端機", desktop: "桌面",
+        turnHit: "本輪命中", avgHit: "平均命中", cost: "本次花費", context: "上下文",
+        cacheExpiresCaption: "後快取過期", cacheActive: "執行中 · 快取使用中",
+        cacheExpired: "快取已過期", cacheUnknown: "下一輪後開始計時",
+        activeCount: "%d 個活躍", idle: "閒置",
+        emptyTitle: "近 24 小時沒有活躍的工作階段",
+        emptyHint: "在任一 Claude Code 工作階段傳送一則訊息,資料就會顯示在這裡。",
+        launchAtLogin: "登入時啟動", quit: "結束", language: "語言", followSystem: "跟隨系統",
+        appearance: "外觀", themeSystem: "跟隨系統", themeLight: "淺色", themeDark: "深色",
+        loginError: "無法變更「登入時啟動」:%@",
+        adviceTitle: "何時 /compact",
+        adviceRunning: "本輪進行中",
+        adviceRunningDetail: "這一輪結束後再提供建議。",
+        adviceNotNeeded: "不需要壓縮",
+        adviceNotNeededDetail: "上下文只有 %@,壓縮的開銷比省下的還多。",
+        adviceOptional: "只在換任務時壓縮",
+        adviceOptionalDetail: "%@ 的上下文省不了多少。無關的新任務直接 /clear,不花錢。",
+        adviceWorthIt: "在下一個停頓點壓縮",
+        adviceWorthItDetail: "每次請求都要重讀 %@。趁快取還熱,在任務之間做,別在任務中途。",
+        adviceBeforeExpiry: "要離開?現在壓縮",
+        adviceBeforeExpiryDetail: "快取 %@ 後過期。趁熱壓縮只花過期後的一小部分。還在工作就繼續,每則訊息都會重新計時。",
+        adviceCold: "快取已過期:繼續之前先決定",
+        adviceColdDetail: "下一則訊息無論如何都要重新處理全部 %@。不需要這段歷史就 /clear(免費);需要就先 /compact,之後每則都更便宜。",
+        adviceNearFull: "現在壓縮,自己挑時機",
+        adviceNearFullDetail: "上下文已用 %d%%。自動壓縮很快會自己挑時機,可能正好在任務中途。",
+        copyCompact: "複製 /compact",
+        copied: "已複製",
+        setupTitle: "終端機狀態列尚未設定",
+        setupButton: "設定",
+        setupDone: "完成。重新啟動終端機裡的工作階段即可看到。",
+        setupReplace: "已設定其他狀態列,要取代嗎?會先備份 settings.json。",
+        cancel: "取消",
+        setupFailed: "設定失敗:%@",
+        guideTitle: "省 token 教學",
+        back: "返回",
+        previous: "上一課",
+        next: "下一課",
+        takeaway: "重點",
+        readDocs: "查看官方文件",
+        why: "為什麼?",
+        updateAvailable: "有新版本:%@",
+        download: "下載",
+        checkUpdates: "自動檢查更新",
+        pinned: "已固定",
+        followLatest: "跟隨最新",
+        costEquivalent: "按 API 價換算")
+
+    static let ja = Strings(
+        fiveHourTitle: "5時間の上限", sevenDayTitle: "7日間の上限", used: "使用済み", noReading: "データなし",
+        resetsIn: "%@ 後にリセット", resetsSoon: "まもなくリセット",
+        currentSession: "現在のセッション", otherSessions: "その他のセッション", terminal: "ターミナル", desktop: "デスクトップ",
+        turnHit: "今回のヒット率", avgHit: "平均ヒット率", cost: "セッション費用", context: "コンテキスト",
+        cacheExpiresCaption: "後にキャッシュ失効", cacheActive: "実行中 · キャッシュ使用中",
+        cacheExpired: "キャッシュ失効", cacheUnknown: "次のターン後に計測開始",
+        activeCount: "%d 件アクティブ", idle: "アイドル",
+        emptyTitle: "過去24時間にアクティブなセッションはありません",
+        emptyHint: "Claude Code のセッションでメッセージを送ると、ここに数値が表示されます。",
+        launchAtLogin: "ログイン時に起動", quit: "終了", language: "言語", followSystem: "システム",
+        appearance: "外観", themeSystem: "システムに合わせる", themeLight: "ライト", themeDark: "ダーク",
+        loginError: "「ログイン時に起動」を変更できません: %@",
+        adviceTitle: "/compact のタイミング",
+        adviceRunning: "ターン実行中",
+        adviceRunningDetail: "このターンが終わると提案が表示されます。",
+        adviceNotNeeded: "圧縮は不要",
+        adviceNotNeededDetail: "コンテキストは %@ だけです。圧縮するとかえって高くつきます。",
+        adviceOptional: "タスクを切り替えるときだけ圧縮",
+        adviceOptionalDetail: "%@ では節約はわずかです。無関係な作業なら /clear は無料です。",
+        adviceWorthIt: "次の区切りで圧縮",
+        adviceWorthItDetail: "リクエストのたびに %@ を読み直します。キャッシュが温かいうちに、作業の途中ではなくタスクの合間に。",
+        adviceBeforeExpiry: "席を離れるなら今すぐ圧縮",
+        adviceBeforeExpiryDetail: "キャッシュは %@ 後に失効します。温かいうちの圧縮は、失効後よりずっと安く済みます。作業を続けるならそのままで。メッセージのたびに延長されます。",
+        adviceCold: "キャッシュ失効:続ける前に判断を",
+        adviceColdDetail: "次のメッセージはどちらにせよ %@ 全体を再処理します。履歴が不要なら /clear は無料。必要なら先に /compact すると、以降が安くなります。",
+        adviceNearFull: "自分のタイミングで今すぐ圧縮",
+        adviceNearFullDetail: "コンテキストは %d%% 使用中。自動圧縮がまもなく、作業の途中でも実行されます。",
+        copyCompact: "/compact をコピー",
+        copied: "コピーしました",
+        setupTitle: "ターミナルのステータスラインが未設定です",
+        setupButton: "設定",
+        setupDone: "完了。ターミナルのセッションを再起動すると表示されます。",
+        setupReplace: "別のステータスラインが設定されています。置き換えますか? settings.json は先にバックアップされます。",
+        cancel: "キャンセル",
+        setupFailed: "設定に失敗しました: %@",
+        guideTitle: "トークン節約ガイド",
+        back: "戻る",
+        previous: "前へ",
+        next: "次へ",
+        takeaway: "ポイント",
+        readDocs: "公式ドキュメントを読む",
+        why: "なぜ?",
+        updateAvailable: "新しいバージョン: %@",
+        download: "ダウンロード",
+        checkUpdates: "アップデートを確認",
+        pinned: "固定中",
+        followLatest: "最新に追従",
+        costEquivalent: "API料金換算")
+
+    static let ko = Strings(
+        fiveHourTitle: "5시간 한도", sevenDayTitle: "7일 한도", used: "사용됨", noReading: "데이터 없음",
+        resetsIn: "%@ 후 재설정", resetsSoon: "곧 재설정",
+        currentSession: "현재 세션", otherSessions: "다른 세션", terminal: "터미널", desktop: "데스크톱",
+        turnHit: "이번 턴 적중", avgHit: "평균 적중", cost: "세션 비용", context: "컨텍스트",
+        cacheExpiresCaption: "후 캐시 만료", cacheActive: "실행 중 · 캐시 사용 중",
+        cacheExpired: "캐시 만료됨", cacheUnknown: "다음 턴 이후 타이머 시작",
+        activeCount: "%d개 활성", idle: "대기 중",
+        emptyTitle: "지난 24시간 동안 활성 세션이 없습니다",
+        emptyHint: "Claude Code 세션에서 메시지를 보내면 여기에 수치가 표시됩니다.",
+        launchAtLogin: "로그인 시 실행", quit: "종료", language: "언어", followSystem: "시스템",
+        appearance: "모양", themeSystem: "시스템 설정", themeLight: "라이트", themeDark: "다크",
+        loginError: "‘로그인 시 실행’을 변경할 수 없습니다: %@",
+        adviceTitle: "/compact 할 때",
+        adviceRunning: "턴 진행 중",
+        adviceRunningDetail: "이번 턴이 끝나면 조언이 표시됩니다.",
+        adviceNotNeeded: "압축할 필요 없음",
+        adviceNotNeededDetail: "컨텍스트가 %@뿐입니다. 압축하면 아끼는 것보다 더 듭니다.",
+        adviceOptional: "작업을 바꿀 때만 압축",
+        adviceOptionalDetail: "%@에서는 절약이 크지 않습니다. 관련 없는 작업이라면 /clear는 무료입니다.",
+        adviceWorthIt: "다음 멈춤 지점에서 압축",
+        adviceWorthItDetail: "요청마다 %@를 다시 읽습니다. 캐시가 따뜻할 때, 작업 중간이 아니라 작업 사이에 하세요.",
+        adviceBeforeExpiry: "자리를 비우나요? 지금 압축",
+        adviceBeforeExpiryDetail: "캐시가 %@ 후 만료됩니다. 따뜻할 때 압축하면 만료 후보다 훨씬 적게 듭니다. 계속 작업 중이면 그대로 진행하세요. 메시지마다 시간이 다시 시작됩니다.",
+        adviceCold: "캐시 만료: 계속하기 전에 결정",
+        adviceColdDetail: "다음 메시지는 어차피 %@ 전체를 다시 처리합니다. 이 기록이 필요 없으면 /clear는 무료입니다. 필요하면 먼저 /compact 하면 이후가 저렴해집니다.",
+        adviceNearFull: "원하는 시점에 지금 압축",
+        adviceNearFullDetail: "컨텍스트가 %d%% 찼습니다. 곧 자동 압축이 작업 중간에라도 실행됩니다.",
+        copyCompact: "/compact 복사",
+        copied: "복사됨",
+        setupTitle: "터미널 상태 표시줄이 설정되지 않았습니다",
+        setupButton: "설정",
+        setupDone: "완료. 터미널 세션을 다시 시작하면 보입니다.",
+        setupReplace: "다른 상태 표시줄이 설정되어 있습니다. 교체할까요? settings.json을 먼저 백업합니다.",
+        cancel: "취소",
+        setupFailed: "설정 실패: %@",
+        guideTitle: "토큰 절약 가이드",
+        back: "뒤로",
+        previous: "이전",
+        next: "다음",
+        takeaway: "핵심",
+        readDocs: "공식 문서 보기",
+        why: "왜?",
+        updateAvailable: "새 버전: %@",
+        download: "다운로드",
+        checkUpdates: "업데이트 확인",
+        pinned: "고정됨",
+        followLatest: "최신 세션 따라가기",
+        costEquivalent: "API 요금 환산")
+
+    static let de = Strings(
+        fiveHourTitle: "5-Stunden-Limit", sevenDayTitle: "7-Tage-Limit", used: "Genutzt", noReading: "Noch kein Wert",
+        resetsIn: "Reset in %@", resetsSoon: "Reset in Kürze",
+        currentSession: "Aktuelle Sitzung", otherSessions: "Weitere Sitzungen", terminal: "Terminal", desktop: "Desktop",
+        turnHit: "Cache-Treffer (Zug)", avgHit: "Cache-Treffer (Ø)", cost: "Sitzungskosten", context: "Kontext",
+        cacheExpiresCaption: "bis der Cache abläuft", cacheActive: "Läuft · Cache in Benutzung",
+        cacheExpired: "Cache abgelaufen", cacheUnknown: "Timer startet nach dem nächsten Zug",
+        activeCount: "%d aktiv", idle: "Inaktiv",
+        emptyTitle: "Keine aktiven Sitzungen in den letzten 24 Stunden",
+        emptyHint: "Sende in einer Claude-Code-Sitzung eine Nachricht, dann erscheinen hier die Werte.",
+        launchAtLogin: "Bei Anmeldung starten", quit: "Beenden", language: "Sprache", followSystem: "System",
+        appearance: "Erscheinungsbild", themeSystem: "Wie System", themeLight: "Hell", themeDark: "Dunkel",
+        loginError: "„Bei Anmeldung starten“ konnte nicht geändert werden: %@",
+        adviceTitle: "Wann /compact?",
+        adviceRunning: "Zug läuft",
+        adviceRunningDetail: "Der Hinweis erscheint, wenn dieser Zug endet.",
+        adviceNotNeeded: "Kein Komprimieren nötig",
+        adviceNotNeededDetail: "Der Kontext umfasst nur %@. Komprimieren würde mehr kosten, als es spart.",
+        adviceOptional: "Nur beim Aufgabenwechsel komprimieren",
+        adviceOptionalDetail: "Bei %@ ist die Ersparnis gering. Für andere Aufgaben ist /clear kostenlos.",
+        adviceWorthIt: "Am nächsten Haltepunkt komprimieren",
+        adviceWorthItDetail: "Jede Anfrage liest %@ erneut. Zwischen Aufgaben erledigen, nicht mittendrin, solange der Cache warm ist.",
+        adviceBeforeExpiry: "Pause geplant? Jetzt komprimieren",
+        adviceBeforeExpiryDetail: "Der Cache läuft in %@ ab. Solange er warm ist, kostet Komprimieren nur einen Bruchteil. Du arbeitest weiter? Dann einfach weitermachen: Jede Nachricht setzt die Uhr zurück.",
+        adviceCold: "Cache abgelaufen: erst entscheiden",
+        adviceColdDetail: "Die nächste Nachricht verarbeitet so oder so alle %@ neu. Verlauf nicht mehr nötig? /clear ist kostenlos. Sonst zuerst /compact, damit alles danach günstiger wird.",
+        adviceNearFull: "Jetzt selbst komprimieren",
+        adviceNearFullDetail: "Der Kontext ist zu %d%% voll. Die automatische Komprimierung wählt bald selbst den Zeitpunkt, womöglich mitten in der Aufgabe.",
+        copyCompact: "/compact kopieren",
+        copied: "Kopiert",
+        setupTitle: "Terminal-Statuszeile ist nicht eingerichtet",
+        setupButton: "Einrichten",
+        setupDone: "Fertig. Starte deine Terminal-Sitzungen neu, um sie zu sehen.",
+        setupReplace: "Es ist bereits eine andere Statuszeile eingerichtet. Ersetzen? settings.json wird vorher gesichert.",
+        cancel: "Abbrechen",
+        setupFailed: "Einrichtung fehlgeschlagen: %@",
+        guideTitle: "Leitfaden zum Token-Sparen",
+        back: "Zurück",
+        previous: "Vorherige",
+        next: "Nächste",
+        takeaway: "Das Wichtigste",
+        readDocs: "Zur Dokumentation",
+        why: "Warum?",
+        updateAvailable: "Update verfügbar: %@",
+        download: "Laden",
+        checkUpdates: "Nach Updates suchen",
+        pinned: "Angeheftet",
+        followLatest: "Neueste folgen",
+        costEquivalent: "Wert zu API-Preisen")
+
+    static let fr = Strings(
+        fiveHourTitle: "Limite 5 heures", sevenDayTitle: "Limite 7 jours", used: "Utilisé", noReading: "Pas encore de mesure",
+        resetsIn: "Réinitialisation dans %@", resetsSoon: "Réinitialisation imminente",
+        currentSession: "Session en cours", otherSessions: "Autres sessions", terminal: "Terminal", desktop: "Bureau",
+        turnHit: "Cache (ce tour)", avgHit: "Cache (moyenne)", cost: "Coût de la session", context: "Contexte",
+        cacheExpiresCaption: "avant expiration du cache", cacheActive: "En cours · cache utilisé",
+        cacheExpired: "Cache expiré", cacheUnknown: "Le minuteur démarre après le prochain tour",
+        activeCount: "%d actives", idle: "Inactif",
+        emptyTitle: "Aucune session active depuis 24 heures",
+        emptyHint: "Envoyez un message dans une session Claude Code pour voir ses chiffres ici.",
+        launchAtLogin: "Ouvrir à la connexion", quit: "Quitter", language: "Langue", followSystem: "Système",
+        appearance: "Apparence", themeSystem: "Comme le système", themeLight: "Clair", themeDark: "Sombre",
+        loginError: "Impossible de modifier « Ouvrir à la connexion » : %@",
+        adviceTitle: "Quand lancer /compact",
+        adviceRunning: "Tour en cours",
+        adviceRunningDetail: "Le conseil revient à la fin de ce tour.",
+        adviceNotNeeded: "Inutile de compacter",
+        adviceNotNeededDetail: "Le contexte ne fait que %@. Compacter coûterait plus que cela ne rapporte.",
+        adviceOptional: "Compacter seulement en changeant de tâche",
+        adviceOptionalDetail: "À %@, le gain est modeste. Pour un travail sans rapport, /clear est gratuit.",
+        adviceWorthIt: "Compacter au prochain point d’arrêt",
+        adviceWorthItDetail: "Chaque requête relit %@. Faites-le entre deux tâches, pas au milieu, tant que le cache est chaud.",
+        adviceBeforeExpiry: "Vous faites une pause ? Compactez maintenant",
+        adviceBeforeExpiryDetail: "Le cache expire dans %@. Compacter tant qu’il est chaud coûte une fraction du prix d’après. Vous continuez ? Poursuivez : chaque message relance le minuteur.",
+        adviceCold: "Cache expiré : décidez avant de continuer",
+        adviceColdDetail: "Votre prochain message retraitera les %@ de toute façon. Plus besoin de cet historique ? /clear est gratuit. Sinon, /compact d’abord pour que la suite coûte moins.",
+        adviceNearFull: "Compactez maintenant, à votre rythme",
+        adviceNearFullDetail: "Le contexte est plein à %d%%. Le compactage automatique choisira bientôt son moment, peut-être en pleine tâche.",
+        copyCompact: "Copier /compact",
+        copied: "Copié",
+        setupTitle: "La ligne d’état du terminal n’est pas configurée",
+        setupButton: "Configurer",
+        setupDone: "Terminé. Redémarrez vos sessions de terminal pour la voir.",
+        setupReplace: "Une autre ligne d’état est configurée. La remplacer ? settings.json est d’abord sauvegardé.",
+        cancel: "Annuler",
+        setupFailed: "Échec de la configuration : %@",
+        guideTitle: "Guide pour économiser des tokens",
+        back: "Retour",
+        previous: "Précédent",
+        next: "Suivant",
+        takeaway: "À retenir",
+        readDocs: "Lire la documentation",
+        why: "Pourquoi ?",
+        updateAvailable: "Mise à jour disponible : %@",
+        download: "Télécharger",
+        checkUpdates: "Rechercher les mises à jour",
+        pinned: "Épinglée",
+        followLatest: "Suivre la plus récente",
+        costEquivalent: "Valeur au tarif API")
+
+    static let es = Strings(
+        fiveHourTitle: "Límite de 5 horas", sevenDayTitle: "Límite de 7 días", used: "Usado", noReading: "Aún sin datos",
+        resetsIn: "Se restablece en %@", resetsSoon: "Se restablece pronto",
+        currentSession: "Sesión actual", otherSessions: "Otras sesiones", terminal: "Terminal", desktop: "Escritorio",
+        turnHit: "Caché (este turno)", avgHit: "Caché (media)", cost: "Coste de la sesión", context: "Contexto",
+        cacheExpiresCaption: "hasta que caduque la caché", cacheActive: "En curso · caché en uso",
+        cacheExpired: "Caché caducada", cacheUnknown: "El temporizador empieza tras el próximo turno",
+        activeCount: "%d activas", idle: "Inactivo",
+        emptyTitle: "Sin sesiones activas en las últimas 24 horas",
+        emptyHint: "Envía un mensaje en cualquier sesión de Claude Code y sus cifras aparecerán aquí.",
+        launchAtLogin: "Abrir al iniciar sesión", quit: "Salir", language: "Idioma", followSystem: "Sistema",
+        appearance: "Apariencia", themeSystem: "Según el sistema", themeLight: "Claro", themeDark: "Oscuro",
+        loginError: "No se pudo cambiar «Abrir al iniciar sesión»: %@",
+        adviceTitle: "Cuándo usar /compact",
+        adviceRunning: "Turno en curso",
+        adviceRunningDetail: "El consejo vuelve cuando termine este turno.",
+        adviceNotNeeded: "No hace falta compactar",
+        adviceNotNeededDetail: "El contexto es de solo %@. Compactar costaría más de lo que ahorra.",
+        adviceOptional: "Compacta solo al cambiar de tarea",
+        adviceOptionalDetail: "Con %@ el ahorro es modesto. Para trabajo no relacionado, /clear es gratis.",
+        adviceWorthIt: "Compacta en la próxima pausa",
+        adviceWorthItDetail: "Cada solicitud vuelve a leer %@. Hazlo entre tareas, no a mitad, mientras la caché esté caliente.",
+        adviceBeforeExpiry: "¿Te vas? Compacta ahora",
+        adviceBeforeExpiryDetail: "La caché caduca en %@. Compactar mientras está caliente cuesta una fracción de hacerlo después. ¿Sigues trabajando? Continúa: cada mensaje reinicia el reloj.",
+        adviceCold: "Caché caducada: decide antes de seguir",
+        adviceColdDetail: "Tu próximo mensaje reprocesará los %@ de todos modos. ¿Ya no necesitas este historial? /clear es gratis. Si no, primero /compact para que todo lo siguiente cueste menos.",
+        adviceNearFull: "Compacta ahora, cuando tú decidas",
+        adviceNearFullDetail: "El contexto está al %d%%. La compactación automática pronto elegirá su momento, quizá a mitad de tarea.",
+        copyCompact: "Copiar /compact",
+        copied: "Copiado",
+        setupTitle: "La línea de estado del terminal no está configurada",
+        setupButton: "Configurar",
+        setupDone: "Listo. Reinicia tus sesiones de terminal para verla.",
+        setupReplace: "Hay otra línea de estado configurada. ¿Reemplazarla? Antes se guarda una copia de settings.json.",
+        cancel: "Cancelar",
+        setupFailed: "Error de configuración: %@",
+        guideTitle: "Guía para ahorrar tokens",
+        back: "Atrás",
+        previous: "Anterior",
+        next: "Siguiente",
+        takeaway: "Idea clave",
+        readDocs: "Leer la documentación",
+        why: "¿Por qué?",
+        updateAvailable: "Actualización disponible: %@",
+        download: "Descargar",
+        checkUpdates: "Buscar actualizaciones",
+        pinned: "Fijada",
+        followLatest: "Seguir la más reciente",
+        costEquivalent: "Valor a precio de API")
+
+    static let pt = Strings(
+        fiveHourTitle: "Limite de 5 horas", sevenDayTitle: "Limite de 7 dias", used: "Usado", noReading: "Ainda sem dados",
+        resetsIn: "Reinicia em %@", resetsSoon: "Reinicia em breve",
+        currentSession: "Sessão atual", otherSessions: "Outras sessões", terminal: "Terminal", desktop: "Desktop",
+        turnHit: "Cache (este turno)", avgHit: "Cache (média)", cost: "Custo da sessão", context: "Contexto",
+        cacheExpiresCaption: "até o cache expirar", cacheActive: "Em execução · cache em uso",
+        cacheExpired: "Cache expirado", cacheUnknown: "O temporizador começa após o próximo turno",
+        activeCount: "%d ativas", idle: "Inativo",
+        emptyTitle: "Nenhuma sessão ativa nas últimas 24 horas",
+        emptyHint: "Envie uma mensagem em qualquer sessão do Claude Code e os números aparecem aqui.",
+        launchAtLogin: "Abrir ao iniciar sessão", quit: "Sair", language: "Idioma", followSystem: "Sistema",
+        appearance: "Aparência", themeSystem: "Igual ao sistema", themeLight: "Claro", themeDark: "Escuro",
+        loginError: "Não foi possível alterar “Abrir ao iniciar sessão”: %@",
+        adviceTitle: "Quando usar /compact",
+        adviceRunning: "Turno em andamento",
+        adviceRunningDetail: "A dica volta quando este turno terminar.",
+        adviceNotNeeded: "Não é preciso compactar",
+        adviceNotNeededDetail: "O contexto tem apenas %@. Compactar custaria mais do que economiza.",
+        adviceOptional: "Compacte só ao trocar de tarefa",
+        adviceOptionalDetail: "Com %@ a economia é pequena. Para trabalho não relacionado, /clear é grátis.",
+        adviceWorthIt: "Compacte na próxima pausa",
+        adviceWorthItDetail: "Cada requisição relê %@. Faça entre tarefas, não no meio, enquanto o cache está quente.",
+        adviceBeforeExpiry: "Vai sair? Compacte agora",
+        adviceBeforeExpiryDetail: "O cache expira em %@. Compactar enquanto está quente custa uma fração de fazer depois. Ainda trabalhando? Continue: cada mensagem reinicia o relógio.",
+        adviceCold: "Cache expirado: decida antes de continuar",
+        adviceColdDetail: "Sua próxima mensagem reprocessará todos os %@ de qualquer forma. Não precisa mais deste histórico? /clear é grátis. Caso contrário, /compact primeiro para baratear o resto.",
+        adviceNearFull: "Compacte agora, do seu jeito",
+        adviceNearFullDetail: "O contexto está %d%% cheio. A compactação automática logo escolherá o momento, talvez no meio da tarefa.",
+        copyCompact: "Copiar /compact",
+        copied: "Copiado",
+        setupTitle: "A linha de status do terminal não está configurada",
+        setupButton: "Configurar",
+        setupDone: "Pronto. Reinicie suas sessões de terminal para vê-la.",
+        setupReplace: "Há outra linha de status configurada. Substituir? O settings.json é salvo antes.",
+        cancel: "Cancelar",
+        setupFailed: "Falha na configuração: %@",
+        guideTitle: "Guia para economizar tokens",
+        back: "Voltar",
+        previous: "Anterior",
+        next: "Próxima",
+        takeaway: "Ponto principal",
+        readDocs: "Ler a documentação",
+        why: "Por quê?",
+        updateAvailable: "Atualização disponível: %@",
+        download: "Baixar",
+        checkUpdates: "Buscar atualizações",
+        pinned: "Fixada",
+        followLatest: "Seguir a mais recente",
+        costEquivalent: "Valor a preço de API")
+
+    static let it = Strings(
+        fiveHourTitle: "Limite 5 ore", sevenDayTitle: "Limite 7 giorni", used: "Usato", noReading: "Nessun dato",
+        resetsIn: "Si azzera tra %@", resetsSoon: "Si azzera a breve",
+        currentSession: "Sessione corrente", otherSessions: "Altre sessioni", terminal: "Terminale", desktop: "Desktop",
+        turnHit: "Cache (questo turno)", avgHit: "Cache (media)", cost: "Costo sessione", context: "Contesto",
+        cacheExpiresCaption: "alla scadenza della cache", cacheActive: "In esecuzione · cache in uso",
+        cacheExpired: "Cache scaduta", cacheUnknown: "Il timer parte dopo il prossimo turno",
+        activeCount: "%d attive", idle: "Inattivo",
+        emptyTitle: "Nessuna sessione attiva nelle ultime 24 ore",
+        emptyHint: "Invia un messaggio in una sessione di Claude Code e i suoi dati compariranno qui.",
+        launchAtLogin: "Apri al login", quit: "Esci", language: "Lingua", followSystem: "Sistema",
+        appearance: "Aspetto", themeSystem: "Come il sistema", themeLight: "Chiaro", themeDark: "Scuro",
+        loginError: "Impossibile modificare “Apri al login”: %@",
+        adviceTitle: "Quando usare /compact",
+        adviceRunning: "Turno in corso",
+        adviceRunningDetail: "Il consiglio torna al termine di questo turno.",
+        adviceNotNeeded: "Non serve compattare",
+        adviceNotNeededDetail: "Il contesto è di soli %@. Compattare costerebbe più di quanto fa risparmiare.",
+        adviceOptional: "Compatta solo quando cambi attività",
+        adviceOptionalDetail: "Con %@ il risparmio è modesto. Per un lavoro non correlato, /clear è gratis.",
+        adviceWorthIt: "Compatta alla prossima pausa",
+        adviceWorthItDetail: "Ogni richiesta rilegge %@. Fallo tra un’attività e l’altra, non a metà, finché la cache è calda.",
+        adviceBeforeExpiry: "Ti allontani? Compatta ora",
+        adviceBeforeExpiryDetail: "La cache scade tra %@. Compattare finché è calda costa una frazione rispetto a dopo. Stai ancora lavorando? Continua: ogni messaggio azzera il timer.",
+        adviceCold: "Cache scaduta: decidi prima di continuare",
+        adviceColdDetail: "Il prossimo messaggio rielaborerà comunque tutti i %@. Non ti serve più questa cronologia? /clear è gratis. Altrimenti prima /compact, così il resto costa meno.",
+        adviceNearFull: "Compatta ora, quando vuoi tu",
+        adviceNearFullDetail: "Il contesto è pieno al %d%%. La compattazione automatica sceglierà presto il suo momento, magari a metà attività.",
+        copyCompact: "Copia /compact",
+        copied: "Copiato",
+        setupTitle: "La riga di stato del terminale non è configurata",
+        setupButton: "Configura",
+        setupDone: "Fatto. Riavvia le sessioni del terminale per vederla.",
+        setupReplace: "È configurata un’altra riga di stato. Sostituirla? Prima viene salvata una copia di settings.json.",
+        cancel: "Annulla",
+        setupFailed: "Configurazione non riuscita: %@",
+        guideTitle: "Guida al risparmio di token",
+        back: "Indietro",
+        previous: "Precedente",
+        next: "Successiva",
+        takeaway: "In sintesi",
+        readDocs: "Leggi la documentazione",
+        why: "Perché?",
+        updateAvailable: "Aggiornamento disponibile: %@",
+        download: "Scarica",
+        checkUpdates: "Cerca aggiornamenti",
+        pinned: "Fissata",
+        followLatest: "Segui la più recente",
+        costEquivalent: "Valore a prezzi API")
+
+    static let nl = Strings(
+        fiveHourTitle: "5-uurslimiet", sevenDayTitle: "7-dagenlimiet", used: "Gebruikt", noReading: "Nog geen meting",
+        resetsIn: "Reset over %@", resetsSoon: "Reset binnenkort",
+        currentSession: "Huidige sessie", otherSessions: "Andere sessies", terminal: "Terminal", desktop: "Desktop",
+        turnHit: "Cache (deze beurt)", avgHit: "Cache (gemiddeld)", cost: "Sessiekosten", context: "Context",
+        cacheExpiresCaption: "tot de cache verloopt", cacheActive: "Bezig · cache in gebruik",
+        cacheExpired: "Cache verlopen", cacheUnknown: "Timer start na de volgende beurt",
+        activeCount: "%d actief", idle: "Inactief",
+        emptyTitle: "Geen actieve sessies in de afgelopen 24 uur",
+        emptyHint: "Stuur een bericht in een Claude Code-sessie en de cijfers verschijnen hier.",
+        launchAtLogin: "Open bij inloggen", quit: "Stop", language: "Taal", followSystem: "Systeem",
+        appearance: "Weergave", themeSystem: "Volg systeem", themeLight: "Licht", themeDark: "Donker",
+        loginError: "Kan ‘Open bij inloggen’ niet wijzigen: %@",
+        adviceTitle: "Wanneer /compact",
+        adviceRunning: "Beurt bezig",
+        adviceRunningDetail: "Het advies komt terug als deze beurt klaar is.",
+        adviceNotNeeded: "Compacten is niet nodig",
+        adviceNotNeededDetail: "De context is maar %@. Compacten kost meer dan het oplevert.",
+        adviceOptional: "Compact alleen bij een taakwissel",
+        adviceOptionalDetail: "Bij %@ is de besparing klein. Voor ander werk is /clear gratis.",
+        adviceWorthIt: "Compact bij het volgende rustpunt",
+        adviceWorthItDetail: "Elk verzoek leest %@ opnieuw. Doe het tussen taken, niet middenin, zolang de cache warm is.",
+        adviceBeforeExpiry: "Ga je weg? Compact nu",
+        adviceBeforeExpiryDetail: "De cache verloopt over %@. Compacten terwijl hij warm is kost een fractie van daarna. Nog bezig? Ga door: elk bericht zet de klok terug.",
+        adviceCold: "Cache verlopen: beslis voordat je doorgaat",
+        adviceColdDetail: "Je volgende bericht verwerkt hoe dan ook alle %@ opnieuw. Geschiedenis niet meer nodig? /clear is gratis. Anders eerst /compact, zodat alles daarna goedkoper is.",
+        adviceNearFull: "Compact nu, op jouw moment",
+        adviceNearFullDetail: "De context is %d%% vol. Automatisch compacten kiest straks zelf een moment, misschien midden in een taak.",
+        copyCompact: "Kopieer /compact",
+        copied: "Gekopieerd",
+        setupTitle: "Statusregel in de terminal is niet ingesteld",
+        setupButton: "Instellen",
+        setupDone: "Klaar. Herstart je terminalsessies om hem te zien.",
+        setupReplace: "Er is al een andere statusregel ingesteld. Vervangen? Er wordt eerst een back-up van settings.json gemaakt.",
+        cancel: "Annuleer",
+        setupFailed: "Instellen mislukt: %@",
+        guideTitle: "Gids voor tokenbesparing",
+        back: "Terug",
+        previous: "Vorige",
+        next: "Volgende",
+        takeaway: "Kernpunt",
+        readDocs: "Lees de documentatie",
+        why: "Waarom?",
+        updateAvailable: "Update beschikbaar: %@",
+        download: "Download",
+        checkUpdates: "Zoek naar updates",
+        pinned: "Vastgezet",
+        followLatest: "Volg de nieuwste",
+        costEquivalent: "Waarde tegen API-tarief")
+
+    static let sv = Strings(
+        fiveHourTitle: "5-timmarsgräns", sevenDayTitle: "7-dagarsgräns", used: "Använt", noReading: "Inget värde än",
+        resetsIn: "Återställs om %@", resetsSoon: "Återställs snart",
+        currentSession: "Aktuell session", otherSessions: "Andra sessioner", terminal: "Terminal", desktop: "Skrivbord",
+        turnHit: "Cache (denna tur)", avgHit: "Cache (snitt)", cost: "Sessionskostnad", context: "Kontext",
+        cacheExpiresCaption: "tills cachen går ut", cacheActive: "Körs · cachen används",
+        cacheExpired: "Cachen har gått ut", cacheUnknown: "Timern startar efter nästa tur",
+        activeCount: "%d aktiva", idle: "Inaktiv",
+        emptyTitle: "Inga aktiva sessioner de senaste 24 timmarna",
+        emptyHint: "Skicka ett meddelande i en Claude Code-session så visas siffrorna här.",
+        launchAtLogin: "Öppna vid inloggning", quit: "Avsluta", language: "Språk", followSystem: "System",
+        appearance: "Utseende", themeSystem: "Följ systemet", themeLight: "Ljust", themeDark: "Mörkt",
+        loginError: "Det gick inte att ändra ”Öppna vid inloggning”: %@",
+        adviceTitle: "När ska man köra /compact",
+        adviceRunning: "Tur pågår",
+        adviceRunningDetail: "Rådet kommer tillbaka när turen är klar.",
+        adviceNotNeeded: "Ingen komprimering behövs",
+        adviceNotNeededDetail: "Kontexten är bara %@. Att komprimera kostar mer än det sparar.",
+        adviceOptional: "Komprimera bara vid byte av uppgift",
+        adviceOptionalDetail: "Vid %@ är besparingen liten. För orelaterat arbete är /clear gratis.",
+        adviceWorthIt: "Komprimera vid nästa paus",
+        adviceWorthItDetail: "Varje förfrågan läser om %@. Gör det mellan uppgifter, inte mitt i, medan cachen är varm.",
+        adviceBeforeExpiry: "Går du iväg? Komprimera nu",
+        adviceBeforeExpiryDetail: "Cachen går ut om %@. Att komprimera medan den är varm kostar en bråkdel av att göra det senare. Jobbar du vidare? Fortsätt: varje meddelande nollställer klockan.",
+        adviceCold: "Cachen har gått ut: bestäm innan du fortsätter",
+        adviceColdDetail: "Nästa meddelande bearbetar ändå om alla %@. Behöver du inte historiken? /clear är gratis. Annars /compact först, så blir allt efteråt billigare.",
+        adviceNearFull: "Komprimera nu, på dina villkor",
+        adviceNearFullDetail: "Kontexten är %d%% full. Automatisk komprimering väljer snart sin egen tidpunkt, kanske mitt i en uppgift.",
+        copyCompact: "Kopiera /compact",
+        copied: "Kopierat",
+        setupTitle: "Terminalens statusrad är inte inställd",
+        setupButton: "Ställ in",
+        setupDone: "Klart. Starta om dina terminalsessioner för att se den.",
+        setupReplace: "En annan statusrad är redan inställd. Ersätta den? settings.json säkerhetskopieras först.",
+        cancel: "Avbryt",
+        setupFailed: "Inställningen misslyckades: %@",
+        guideTitle: "Guide för att spara tokens",
+        back: "Tillbaka",
+        previous: "Föregående",
+        next: "Nästa",
+        takeaway: "Det viktigaste",
+        readDocs: "Läs dokumentationen",
+        why: "Varför?",
+        updateAvailable: "Uppdatering finns: %@",
+        download: "Hämta",
+        checkUpdates: "Sök efter uppdateringar",
+        pinned: "Fäst",
+        followLatest: "Följ den senaste",
+        costEquivalent: "Värde till API-pris")
+
+    static let pl = Strings(
+        fiveHourTitle: "Limit 5-godzinny", sevenDayTitle: "Limit 7-dniowy", used: "Użyto", noReading: "Brak odczytu",
+        resetsIn: "Reset za %@", resetsSoon: "Reset wkrótce",
+        currentSession: "Bieżąca sesja", otherSessions: "Inne sesje", terminal: "Terminal", desktop: "Aplikacja",
+        turnHit: "Cache (ta tura)", avgHit: "Cache (średnio)", cost: "Koszt sesji", context: "Kontekst",
+        cacheExpiresCaption: "do wygaśnięcia cache", cacheActive: "W toku · cache w użyciu",
+        cacheExpired: "Cache wygasł", cacheUnknown: "Licznik ruszy po następnej turze",
+        activeCount: "Aktywne: %d", idle: "Bezczynny",
+        emptyTitle: "Brak aktywnych sesji w ciągu ostatnich 24 godzin",
+        emptyHint: "Wyślij wiadomość w dowolnej sesji Claude Code, a jej dane pojawią się tutaj.",
+        launchAtLogin: "Uruchamiaj przy logowaniu", quit: "Zakończ", language: "Język", followSystem: "Systemowy",
+        appearance: "Wygląd", themeSystem: "Jak w systemie", themeLight: "Jasny", themeDark: "Ciemny",
+        loginError: "Nie udało się zmienić opcji „Uruchamiaj przy logowaniu”: %@",
+        adviceTitle: "Kiedy użyć /compact",
+        adviceRunning: "Tura w toku",
+        adviceRunningDetail: "Wskazówka wróci po zakończeniu tej tury.",
+        adviceNotNeeded: "Nie trzeba kompaktować",
+        adviceNotNeededDetail: "Kontekst ma tylko %@. Kompaktowanie kosztowałoby więcej, niż oszczędza.",
+        adviceOptional: "Kompaktuj tylko przy zmianie zadania",
+        adviceOptionalDetail: "Przy %@ oszczędność jest niewielka. Do niezwiązanej pracy /clear jest darmowe.",
+        adviceWorthIt: "Kompaktuj przy najbliższej przerwie",
+        adviceWorthItDetail: "Każde żądanie czyta ponownie %@. Zrób to między zadaniami, nie w trakcie, póki cache jest ciepły.",
+        adviceBeforeExpiry: "Odchodzisz? Kompaktuj teraz",
+        adviceBeforeExpiryDetail: "Cache wygaśnie za %@. Kompaktowanie, póki jest ciepły, kosztuje ułamek tego co później. Nadal pracujesz? Kontynuuj: każda wiadomość zeruje zegar.",
+        adviceCold: "Cache wygasł: zdecyduj, zanim przejdziesz dalej",
+        adviceColdDetail: "Następna wiadomość i tak przetworzy ponownie całe %@. Historia już niepotrzebna? /clear jest darmowe. W przeciwnym razie najpierw /compact, żeby reszta była tańsza.",
+        adviceNearFull: "Kompaktuj teraz, na swoich warunkach",
+        adviceNearFullDetail: "Kontekst jest zapełniony w %d%%. Automatyczne kompaktowanie wkrótce samo wybierze moment, być może w środku zadania.",
+        copyCompact: "Kopiuj /compact",
+        copied: "Skopiowano",
+        setupTitle: "Pasek stanu terminala nie jest skonfigurowany",
+        setupButton: "Skonfiguruj",
+        setupDone: "Gotowe. Uruchom ponownie sesje terminala, aby go zobaczyć.",
+        setupReplace: "Skonfigurowano inny pasek stanu. Zastąpić? Najpierw powstanie kopia settings.json.",
+        cancel: "Anuluj",
+        setupFailed: "Konfiguracja nie powiodła się: %@",
+        guideTitle: "Poradnik oszczędzania tokenów",
+        back: "Wstecz",
+        previous: "Poprzednia",
+        next: "Następna",
+        takeaway: "Najważniejsze",
+        readDocs: "Czytaj dokumentację",
+        why: "Dlaczego?",
+        updateAvailable: "Dostępna aktualizacja: %@",
+        download: "Pobierz",
+        checkUpdates: "Sprawdzaj aktualizacje",
+        pinned: "Przypięta",
+        followLatest: "Śledź najnowszą",
+        costEquivalent: "Wartość wg cen API")
+
+    static let ru = Strings(
+        fiveHourTitle: "Лимит на 5 часов", sevenDayTitle: "Лимит на 7 дней", used: "Использовано", noReading: "Данных пока нет",
+        resetsIn: "Сброс через %@", resetsSoon: "Скоро сброс",
+        currentSession: "Текущая сессия", otherSessions: "Другие сессии", terminal: "Терминал", desktop: "Приложение",
+        turnHit: "Кэш (этот ход)", avgHit: "Кэш (в среднем)", cost: "Стоимость сессии", context: "Контекст",
+        cacheExpiresCaption: "до истечения кэша", cacheActive: "Выполняется · кэш используется",
+        cacheExpired: "Кэш истёк", cacheUnknown: "Таймер запустится после следующего хода",
+        activeCount: "Активных: %d", idle: "Простой",
+        emptyTitle: "Нет активных сессий за последние 24 часа",
+        emptyHint: "Отправьте сообщение в любой сессии Claude Code — её показатели появятся здесь.",
+        launchAtLogin: "Запускать при входе", quit: "Выйти", language: "Язык", followSystem: "Системный",
+        appearance: "Оформление", themeSystem: "Как в системе", themeLight: "Светлое", themeDark: "Тёмное",
+        loginError: "Не удалось изменить «Запускать при входе»: %@",
+        adviceTitle: "Когда запускать /compact",
+        adviceRunning: "Ход выполняется",
+        adviceRunningDetail: "Совет появится, когда ход завершится.",
+        adviceNotNeeded: "Сжимать не нужно",
+        adviceNotNeededDetail: "Контекст всего %@. Сжатие обойдётся дороже, чем сэкономит.",
+        adviceOptional: "Сжимайте только при смене задачи",
+        adviceOptionalDetail: "При %@ экономия невелика. Для несвязанной работы /clear бесплатен.",
+        adviceWorthIt: "Сожмите на ближайшей паузе",
+        adviceWorthItDetail: "Каждый запрос заново читает %@. Делайте это между задачами, а не посреди, пока кэш тёплый.",
+        adviceBeforeExpiry: "Отходите? Сожмите сейчас",
+        adviceBeforeExpiryDetail: "Кэш истечёт через %@. Сжатие при тёплом кэше стоит малую долю от сжатия после. Ещё работаете? Продолжайте: каждое сообщение сбрасывает таймер.",
+        adviceCold: "Кэш истёк: решите, прежде чем продолжать",
+        adviceColdDetail: "Следующее сообщение в любом случае заново обработает все %@. История больше не нужна? /clear бесплатен. Иначе сначала /compact, чтобы дальше было дешевле.",
+        adviceNearFull: "Сожмите сейчас, в удобный момент",
+        adviceNearFullDetail: "Контекст заполнен на %d%%. Автосжатие скоро само выберет момент, возможно посреди задачи.",
+        copyCompact: "Скопировать /compact",
+        copied: "Скопировано",
+        setupTitle: "Строка состояния терминала не настроена",
+        setupButton: "Настроить",
+        setupDone: "Готово. Перезапустите сессии в терминале, чтобы увидеть её.",
+        setupReplace: "Уже настроена другая строка состояния. Заменить? Сначала будет сохранена копия settings.json.",
+        cancel: "Отмена",
+        setupFailed: "Не удалось настроить: %@",
+        guideTitle: "Как экономить токены",
+        back: "Назад",
+        previous: "Предыдущий",
+        next: "Следующий",
+        takeaway: "Главное",
+        readDocs: "Читать документацию",
+        why: "Почему?",
+        updateAvailable: "Доступно обновление: %@",
+        download: "Скачать",
+        checkUpdates: "Проверять обновления",
+        pinned: "Закреплена",
+        followLatest: "Следовать за последней",
+        costEquivalent: "По ценам API")
+
+    static let tr = Strings(
+        fiveHourTitle: "5 Saatlik Limit", sevenDayTitle: "7 Günlük Limit", used: "Kullanıldı", noReading: "Henüz veri yok",
+        resetsIn: "%@ sonra sıfırlanır", resetsSoon: "Birazdan sıfırlanır",
+        currentSession: "Geçerli oturum", otherSessions: "Diğer oturumlar", terminal: "Terminal", desktop: "Masaüstü",
+        turnHit: "Önbellek (bu tur)", avgHit: "Önbellek (ort.)", cost: "Oturum maliyeti", context: "Bağlam",
+        cacheExpiresCaption: "sonra önbellek sona erer", cacheActive: "Çalışıyor · önbellek kullanımda",
+        cacheExpired: "Önbellek süresi doldu", cacheUnknown: "Sayaç bir sonraki turdan sonra başlar",
+        activeCount: "%d etkin", idle: "Boşta",
+        emptyTitle: "Son 24 saatte etkin oturum yok",
+        emptyHint: "Herhangi bir Claude Code oturumunda mesaj gönderin; veriler burada görünür.",
+        launchAtLogin: "Girişte başlat", quit: "Çık", language: "Dil", followSystem: "Sistem",
+        appearance: "Görünüm", themeSystem: "Sistemle aynı", themeLight: "Açık", themeDark: "Koyu",
+        loginError: "“Girişte başlat” değiştirilemedi: %@",
+        adviceTitle: "/compact ne zaman",
+        adviceRunning: "Tur sürüyor",
+        adviceRunningDetail: "Bu tur bitince öneri geri gelir.",
+        adviceNotNeeded: "Sıkıştırmaya gerek yok",
+        adviceNotNeededDetail: "Bağlam yalnızca %@. Sıkıştırmak, kazandırdığından fazlasına mal olur.",
+        adviceOptional: "Yalnızca görev değiştirirken sıkıştır",
+        adviceOptionalDetail: "%@ düzeyinde kazanç sınırlı. İlgisiz işler için /clear ücretsizdir.",
+        adviceWorthIt: "Bir sonraki duraklamada sıkıştır",
+        adviceWorthItDetail: "Her istek %@ yeniden okur. Önbellek sıcakken, görevin ortasında değil, görevler arasında yap.",
+        adviceBeforeExpiry: "Ara mı veriyorsun? Şimdi sıkıştır",
+        adviceBeforeExpiryDetail: "Önbellek %@ sonra sona eriyor. Sıcakken sıkıştırmak, sonrasına göre çok daha ucuz. Hâlâ çalışıyor musun? Devam et: her mesaj süreyi sıfırlar.",
+        adviceCold: "Önbellek sona erdi: devam etmeden karar ver",
+        adviceColdDetail: "Sonraki mesajın her durumda %@ tamamını yeniden işleyecek. Bu geçmişe gerek kalmadı mı? /clear ücretsiz. Aksi halde önce /compact, böylece sonrası ucuzlar.",
+        adviceNearFull: "Şimdi, kendi seçtiğin anda sıkıştır",
+        adviceNearFullDetail: "Bağlam %d%% dolu. Otomatik sıkıştırma yakında kendi anını seçecek, belki görevin ortasında.",
+        copyCompact: "/compact kopyala",
+        copied: "Kopyalandı",
+        setupTitle: "Terminal durum satırı ayarlanmamış",
+        setupButton: "Ayarla",
+        setupDone: "Tamam. Görmek için terminal oturumlarını yeniden başlat.",
+        setupReplace: "Başka bir durum satırı ayarlı. Değiştirilsin mi? Önce settings.json yedeklenir.",
+        cancel: "Vazgeç",
+        setupFailed: "Ayarlama başarısız: %@",
+        guideTitle: "Token tasarrufu rehberi",
+        back: "Geri",
+        previous: "Önceki",
+        next: "Sonraki",
+        takeaway: "Özet",
+        readDocs: "Belgeleri oku",
+        why: "Neden?",
+        updateAvailable: "Güncelleme var: %@",
+        download: "İndir",
+        checkUpdates: "Güncellemeleri denetle",
+        pinned: "Sabitlendi",
+        followLatest: "En yeniyi izle",
+        costEquivalent: "API fiyatıyla değer")
+
+    static let id = Strings(
+        fiveHourTitle: "Batas 5 Jam", sevenDayTitle: "Batas 7 Hari", used: "Terpakai", noReading: "Belum ada data",
+        resetsIn: "Reset dalam %@", resetsSoon: "Segera direset",
+        currentSession: "Sesi saat ini", otherSessions: "Sesi lain", terminal: "Terminal", desktop: "Desktop",
+        turnHit: "Cache (giliran ini)", avgHit: "Cache (rata-rata)", cost: "Biaya sesi", context: "Konteks",
+        cacheExpiresCaption: "sampai cache kedaluwarsa", cacheActive: "Berjalan · cache sedang dipakai",
+        cacheExpired: "Cache kedaluwarsa", cacheUnknown: "Penghitung mulai setelah giliran berikutnya",
+        activeCount: "%d aktif", idle: "Diam",
+        emptyTitle: "Tidak ada sesi aktif dalam 24 jam terakhir",
+        emptyHint: "Kirim pesan di sesi Claude Code mana pun dan angkanya akan muncul di sini.",
+        launchAtLogin: "Buka saat login", quit: "Keluar", language: "Bahasa", followSystem: "Sistem",
+        appearance: "Tampilan", themeSystem: "Ikuti sistem", themeLight: "Terang", themeDark: "Gelap",
+        loginError: "Tidak dapat mengubah “Buka saat login”: %@",
+        adviceTitle: "Kapan menjalankan /compact",
+        adviceRunning: "Giliran sedang berjalan",
+        adviceRunningDetail: "Saran muncul lagi setelah giliran ini selesai.",
+        adviceNotNeeded: "Tidak perlu memadatkan",
+        adviceNotNeededDetail: "Konteks hanya %@. Memadatkan justru lebih mahal daripada penghematannya.",
+        adviceOptional: "Padatkan hanya saat ganti tugas",
+        adviceOptionalDetail: "Pada %@ penghematannya kecil. Untuk pekerjaan lain, /clear gratis.",
+        adviceWorthIt: "Padatkan di jeda berikutnya",
+        adviceWorthItDetail: "Setiap permintaan membaca ulang %@. Lakukan di antara tugas, bukan di tengahnya, selagi cache masih hangat.",
+        adviceBeforeExpiry: "Mau pergi? Padatkan sekarang",
+        adviceBeforeExpiryDetail: "Cache kedaluwarsa dalam %@. Memadatkan selagi hangat jauh lebih murah daripada sesudahnya. Masih bekerja? Lanjutkan saja: setiap pesan mengulang hitungan.",
+        adviceCold: "Cache kedaluwarsa: putuskan sebelum lanjut",
+        adviceColdDetail: "Pesan berikutnya tetap akan memproses ulang seluruh %@. Riwayat ini tak diperlukan lagi? /clear gratis. Jika perlu, /compact dulu agar selanjutnya lebih murah.",
+        adviceNearFull: "Padatkan sekarang, pada waktu pilihanmu",
+        adviceNearFullDetail: "Konteks terisi %d%%. Pemadatan otomatis segera memilih waktunya sendiri, mungkin di tengah tugas.",
+        copyCompact: "Salin /compact",
+        copied: "Tersalin",
+        setupTitle: "Baris status terminal belum disiapkan",
+        setupButton: "Siapkan",
+        setupDone: "Selesai. Mulai ulang sesi terminal untuk melihatnya.",
+        setupReplace: "Baris status lain sudah dikonfigurasi. Ganti? settings.json dicadangkan lebih dulu.",
+        cancel: "Batal",
+        setupFailed: "Penyiapan gagal: %@",
+        guideTitle: "Panduan hemat token",
+        back: "Kembali",
+        previous: "Sebelumnya",
+        next: "Berikutnya",
+        takeaway: "Intinya",
+        readDocs: "Baca dokumentasi",
+        why: "Mengapa?",
+        updateAvailable: "Pembaruan tersedia: %@",
+        download: "Unduh",
+        checkUpdates: "Periksa pembaruan",
+        pinned: "Disematkan",
+        followLatest: "Ikuti yang terbaru",
+        costEquivalent: "Nilai tarif API")
+
+    static let vi = Strings(
+        fiveHourTitle: "Giới hạn 5 giờ", sevenDayTitle: "Giới hạn 7 ngày", used: "Đã dùng", noReading: "Chưa có số liệu",
+        resetsIn: "Đặt lại sau %@", resetsSoon: "Sắp đặt lại",
+        currentSession: "Phiên hiện tại", otherSessions: "Phiên khác", terminal: "Terminal", desktop: "Máy tính",
+        turnHit: "Cache (lượt này)", avgHit: "Cache (trung bình)", cost: "Chi phí phiên", context: "Ngữ cảnh",
+        cacheExpiresCaption: "nữa cache hết hạn", cacheActive: "Đang chạy · cache đang dùng",
+        cacheExpired: "Cache đã hết hạn", cacheUnknown: "Bắt đầu đếm sau lượt tiếp theo",
+        activeCount: "%d đang hoạt động", idle: "Rảnh",
+        emptyTitle: "Không có phiên hoạt động trong 24 giờ qua",
+        emptyHint: "Gửi một tin nhắn trong bất kỳ phiên Claude Code nào, số liệu sẽ hiện ở đây.",
+        launchAtLogin: "Mở khi đăng nhập", quit: "Thoát", language: "Ngôn ngữ", followSystem: "Hệ thống",
+        appearance: "Giao diện", themeSystem: "Theo hệ thống", themeLight: "Sáng", themeDark: "Tối",
+        loginError: "Không thể thay đổi “Mở khi đăng nhập”: %@",
+        adviceTitle: "Khi nào nên /compact",
+        adviceRunning: "Lượt đang chạy",
+        adviceRunningDetail: "Gợi ý sẽ trở lại khi lượt này kết thúc.",
+        adviceNotNeeded: "Không cần nén",
+        adviceNotNeededDetail: "Ngữ cảnh chỉ có %@. Nén sẽ tốn hơn phần tiết kiệm được.",
+        adviceOptional: "Chỉ nén khi đổi việc",
+        adviceOptionalDetail: "Ở mức %@ thì tiết kiệm không đáng kể. Với việc không liên quan, /clear miễn phí.",
+        adviceWorthIt: "Nén ở điểm dừng kế tiếp",
+        adviceWorthItDetail: "Mỗi yêu cầu đều đọc lại %@. Hãy làm giữa các việc, đừng làm giữa chừng, khi cache còn ấm.",
+        adviceBeforeExpiry: "Sắp rời đi? Nén ngay",
+        adviceBeforeExpiryDetail: "Cache hết hạn sau %@. Nén khi còn ấm rẻ hơn nhiều so với sau đó. Vẫn đang làm? Cứ tiếp tục: mỗi tin nhắn đặt lại đồng hồ.",
+        adviceCold: "Cache đã hết hạn: quyết định trước khi tiếp tục",
+        adviceColdDetail: "Tin nhắn kế tiếp đằng nào cũng xử lý lại toàn bộ %@. Không cần lịch sử này nữa? /clear miễn phí. Nếu cần, hãy /compact trước để mọi thứ sau đó rẻ hơn.",
+        adviceNearFull: "Nén ngay, theo ý bạn",
+        adviceNearFullDetail: "Ngữ cảnh đã đầy %d%%. Tự động nén sắp tự chọn thời điểm, có thể ngay giữa việc.",
+        copyCompact: "Sao chép /compact",
+        copied: "Đã sao chép",
+        setupTitle: "Chưa thiết lập dòng trạng thái của terminal",
+        setupButton: "Thiết lập",
+        setupDone: "Xong. Khởi động lại các phiên terminal để thấy.",
+        setupReplace: "Đã có dòng trạng thái khác. Thay thế? settings.json sẽ được sao lưu trước.",
+        cancel: "Hủy",
+        setupFailed: "Thiết lập thất bại: %@",
+        guideTitle: "Hướng dẫn tiết kiệm token",
+        back: "Quay lại",
+        previous: "Trước",
+        next: "Tiếp",
+        takeaway: "Điểm chính",
+        readDocs: "Đọc tài liệu",
+        why: "Vì sao?",
+        updateAvailable: "Có bản cập nhật: %@",
+        download: "Tải về",
+        checkUpdates: "Kiểm tra cập nhật",
+        pinned: "Đã ghim",
+        followLatest: "Theo phiên mới nhất",
+        costEquivalent: "Giá trị theo giá API")
+
+    static let th = Strings(
+        fiveHourTitle: "โควตา 5 ชั่วโมง", sevenDayTitle: "โควตา 7 วัน", used: "ใช้ไป", noReading: "ยังไม่มีข้อมูล",
+        resetsIn: "รีเซ็ตใน %@", resetsSoon: "กำลังจะรีเซ็ต",
+        currentSession: "เซสชันปัจจุบัน", otherSessions: "เซสชันอื่น", terminal: "เทอร์มินัล", desktop: "เดสก์ท็อป",
+        turnHit: "แคช (รอบนี้)", avgHit: "แคช (เฉลี่ย)", cost: "ค่าใช้จ่ายเซสชัน", context: "บริบท",
+        cacheExpiresCaption: "ก่อนแคชหมดอายุ", cacheActive: "กำลังทำงาน · กำลังใช้แคช",
+        cacheExpired: "แคชหมดอายุแล้ว", cacheUnknown: "เริ่มจับเวลาหลังรอบถัดไป",
+        activeCount: "ใช้งานอยู่ %d", idle: "ว่าง",
+        emptyTitle: "ไม่มีเซสชันที่ใช้งานใน 24 ชั่วโมงที่ผ่านมา",
+        emptyHint: "ส่งข้อความในเซสชัน Claude Code ใดก็ได้ แล้วตัวเลขจะแสดงที่นี่",
+        launchAtLogin: "เปิดเมื่อเข้าสู่ระบบ", quit: "ออก", language: "ภาษา", followSystem: "ตามระบบ",
+        appearance: "ลักษณะ", themeSystem: "ตามระบบ", themeLight: "สว่าง", themeDark: "มืด",
+        loginError: "ไม่สามารถเปลี่ยน “เปิดเมื่อเข้าสู่ระบบ” ได้: %@",
+        adviceTitle: "ควร /compact เมื่อไร",
+        adviceRunning: "กำลังทำงานในรอบนี้",
+        adviceRunningDetail: "คำแนะนำจะกลับมาเมื่อรอบนี้จบ",
+        adviceNotNeeded: "ยังไม่ต้องบีบอัด",
+        adviceNotNeededDetail: "บริบทมีเพียง %@ การบีบอัดจะเปลืองกว่าที่ประหยัดได้",
+        adviceOptional: "บีบอัดเฉพาะเมื่อเปลี่ยนงาน",
+        adviceOptionalDetail: "ที่ %@ ประหยัดได้ไม่มาก หากเป็นงานที่ไม่เกี่ยวกัน /clear ไม่มีค่าใช้จ่าย",
+        adviceWorthIt: "บีบอัดเมื่อถึงจุดพักถัดไป",
+        adviceWorthItDetail: "ทุกคำขอต้องอ่าน %@ ซ้ำ ทำระหว่างงาน ไม่ใช่กลางงาน ขณะที่แคชยังอุ่นอยู่",
+        adviceBeforeExpiry: "จะลุกไปไหม? บีบอัดตอนนี้",
+        adviceBeforeExpiryDetail: "แคชจะหมดอายุใน %@ การบีบอัดขณะที่แคชยังอุ่นถูกกว่าทำทีหลังมาก ยังทำงานอยู่? ทำต่อได้เลย ทุกข้อความจะเริ่มนับใหม่",
+        adviceCold: "แคชหมดอายุแล้ว: ตัดสินใจก่อนทำต่อ",
+        adviceColdDetail: "ข้อความถัดไปต้องประมวลผล %@ ทั้งหมดใหม่อยู่ดี ไม่ต้องใช้ประวัตินี้แล้ว? /clear ไม่มีค่าใช้จ่าย ถ้ายังต้องใช้ ให้ /compact ก่อน เพื่อให้หลังจากนั้นถูกลง",
+        adviceNearFull: "บีบอัดตอนนี้ในจังหวะของคุณ",
+        adviceNearFullDetail: "บริบทเต็มแล้ว %d%% การบีบอัดอัตโนมัติจะเลือกจังหวะเองในไม่ช้า อาจเป็นกลางงาน",
+        copyCompact: "คัดลอก /compact",
+        copied: "คัดลอกแล้ว",
+        setupTitle: "ยังไม่ได้ตั้งค่าบรรทัดสถานะของเทอร์มินัล",
+        setupButton: "ตั้งค่า",
+        setupDone: "เสร็จแล้ว เริ่มเซสชันเทอร์มินัลใหม่เพื่อดูผล",
+        setupReplace: "มีการตั้งค่าบรรทัดสถานะอื่นอยู่ ต้องการแทนที่ไหม? จะสำรอง settings.json ไว้ก่อน",
+        cancel: "ยกเลิก",
+        setupFailed: "ตั้งค่าไม่สำเร็จ: %@",
+        guideTitle: "คู่มือประหยัดโทเค็น",
+        back: "กลับ",
+        previous: "ก่อนหน้า",
+        next: "ถัดไป",
+        takeaway: "ใจความสำคัญ",
+        readDocs: "อ่านเอกสาร",
+        why: "ทำไม?",
+        updateAvailable: "มีอัปเดต: %@",
+        download: "ดาวน์โหลด",
+        checkUpdates: "ตรวจหาอัปเดต",
+        pinned: "ปักหมุดแล้ว",
+        followLatest: "ตามเซสชันล่าสุด",
+        costEquivalent: "มูลค่าตามราคา API")
+
+    static let hi = Strings(
+        fiveHourTitle: "5 घंटे की सीमा", sevenDayTitle: "7 दिन की सीमा", used: "उपयोग", noReading: "अभी कोई डेटा नहीं",
+        resetsIn: "%@ में रीसेट", resetsSoon: "जल्द रीसेट होगा",
+        currentSession: "वर्तमान सत्र", otherSessions: "अन्य सत्र", terminal: "टर्मिनल", desktop: "डेस्कटॉप",
+        turnHit: "कैश (यह टर्न)", avgHit: "कैश (औसत)", cost: "सत्र की लागत", context: "संदर्भ",
+        cacheExpiresCaption: "में कैश समाप्त होगा", cacheActive: "चल रहा है · कैश उपयोग में",
+        cacheExpired: "कैश समाप्त हो गया", cacheUnknown: "अगले टर्न के बाद टाइमर शुरू होगा",
+        activeCount: "%d सक्रिय", idle: "निष्क्रिय",
+        emptyTitle: "पिछले 24 घंटों में कोई सक्रिय सत्र नहीं",
+        emptyHint: "किसी भी Claude Code सत्र में संदेश भेजें, उसके आँकड़े यहाँ दिखेंगे।",
+        launchAtLogin: "लॉगिन पर खोलें", quit: "बंद करें", language: "भाषा", followSystem: "सिस्टम",
+        appearance: "दिखावट", themeSystem: "सिस्टम के अनुसार", themeLight: "लाइट", themeDark: "डार्क",
+        loginError: "“लॉगिन पर खोलें” बदला नहीं जा सका: %@",
+        adviceTitle: "/compact कब चलाएँ",
+        adviceRunning: "टर्न चल रहा है",
+        adviceRunningDetail: "यह टर्न खत्म होने पर सलाह वापस आएगी।",
+        adviceNotNeeded: "कॉम्पैक्ट करने की ज़रूरत नहीं",
+        adviceNotNeededDetail: "संदर्भ केवल %@ है। कॉम्पैक्ट करना बचत से ज़्यादा महँगा पड़ेगा।",
+        adviceOptional: "केवल काम बदलते समय कॉम्पैक्ट करें",
+        adviceOptionalDetail: "%@ पर बचत मामूली है। असंबंधित काम के लिए /clear मुफ़्त है।",
+        adviceWorthIt: "अगले ठहराव पर कॉम्पैक्ट करें",
+        adviceWorthItDetail: "हर अनुरोध %@ दोबारा पढ़ता है। कैश गर्म रहते, काम के बीच में नहीं, कामों के बीच करें।",
+        adviceBeforeExpiry: "दूर जा रहे हैं? अभी कॉम्पैक्ट करें",
+        adviceBeforeExpiryDetail: "कैश %@ में समाप्त होगा। कैश गर्म रहते कॉम्पैक्ट करना बाद की तुलना में बहुत सस्ता है। अभी काम जारी है? जारी रखें: हर संदेश घड़ी रीसेट करता है।",
+        adviceCold: "कैश समाप्त: आगे बढ़ने से पहले तय करें",
+        adviceColdDetail: "अगला संदेश वैसे भी पूरे %@ को दोबारा प्रोसेस करेगा। यह इतिहास अब नहीं चाहिए? /clear मुफ़्त है। वरना पहले /compact करें, ताकि आगे सब सस्ता पड़े।",
+        adviceNearFull: "अभी, अपने हिसाब से कॉम्पैक्ट करें",
+        adviceNearFullDetail: "संदर्भ %d%% भर चुका है। ऑटो-कॉम्पैक्ट जल्द ही अपना समय खुद चुनेगा, शायद काम के बीच में।",
+        copyCompact: "/compact कॉपी करें",
+        copied: "कॉपी हो गया",
+        setupTitle: "टर्मिनल स्टेटस लाइन सेट नहीं है",
+        setupButton: "सेट करें",
+        setupDone: "हो गया। देखने के लिए टर्मिनल सत्र फिर से शुरू करें।",
+        setupReplace: "कोई और स्टेटस लाइन सेट है। बदलें? पहले settings.json का बैकअप लिया जाएगा।",
+        cancel: "रद्द करें",
+        setupFailed: "सेटअप विफल: %@",
+        guideTitle: "टोकन बचाने की गाइड",
+        back: "वापस",
+        previous: "पिछला",
+        next: "अगला",
+        takeaway: "मुख्य बात",
+        readDocs: "दस्तावेज़ पढ़ें",
+        why: "क्यों?",
+        updateAvailable: "अपडेट उपलब्ध: %@",
+        download: "डाउनलोड",
+        checkUpdates: "अपडेट जाँचें",
+        pinned: "पिन किया गया",
+        followLatest: "नवीनतम का अनुसरण",
+        costEquivalent: "API दर पर मूल्य")
+
+    static let ar = Strings(
+        fiveHourTitle: "حد 5 ساعات", sevenDayTitle: "حد 7 أيام", used: "المستخدم", noReading: "لا توجد قراءة بعد",
+        resetsIn: "إعادة التعيين خلال %@", resetsSoon: "إعادة التعيين قريبًا",
+        currentSession: "الجلسة الحالية", otherSessions: "جلسات أخرى", terminal: "الطرفية", desktop: "سطح المكتب",
+        turnHit: "إصابة الكاش (هذه الجولة)", avgHit: "إصابة الكاش (المتوسط)", cost: "تكلفة الجلسة", context: "السياق",
+        cacheExpiresCaption: "حتى انتهاء الكاش", cacheActive: "قيد التشغيل · الكاش مستخدم",
+        cacheExpired: "انتهت صلاحية الكاش", cacheUnknown: "يبدأ المؤقت بعد الجولة التالية",
+        activeCount: "%d نشطة", idle: "خامل",
+        emptyTitle: "لا توجد جلسات نشطة خلال آخر 24 ساعة",
+        emptyHint: "أرسل رسالة في أي جلسة Claude Code وستظهر أرقامها هنا.",
+        launchAtLogin: "الفتح عند تسجيل الدخول", quit: "إنهاء", language: "اللغة", followSystem: "النظام",
+        appearance: "المظهر", themeSystem: "مطابقة النظام", themeLight: "فاتح", themeDark: "داكن",
+        loginError: "تعذّر تغيير «الفتح عند تسجيل الدخول»: %@",
+        adviceTitle: "متى تستخدم /compact",
+        adviceRunning: "الجولة قيد التنفيذ",
+        adviceRunningDetail: "تعود النصيحة عند انتهاء هذه الجولة.",
+        adviceNotNeeded: "لا حاجة للضغط",
+        adviceNotNeededDetail: "السياق %@ فقط. الضغط سيكلّف أكثر مما يوفّر.",
+        adviceOptional: "اضغط فقط عند تبديل المهمة",
+        adviceOptionalDetail: "عند %@ التوفير محدود. للعمل غير المرتبط، /clear مجاني.",
+        adviceWorthIt: "اضغط عند أول توقف",
+        adviceWorthItDetail: "كل طلب يعيد قراءة %@. نفّذه بين المهام لا في منتصفها، ما دام الكاش دافئًا.",
+        adviceBeforeExpiry: "ستبتعد؟ اضغط الآن",
+        adviceBeforeExpiryDetail: "ينتهي الكاش خلال %@. الضغط وهو دافئ يكلّف جزءًا يسيرًا مما يكلّفه لاحقًا. ما زلت تعمل؟ تابع: كل رسالة تعيد ضبط المؤقت.",
+        adviceCold: "انتهى الكاش: قرّر قبل المتابعة",
+        adviceColdDetail: "رسالتك التالية ستعيد معالجة كامل %@ في كل الأحوال. لم تعد تحتاج هذا السجل؟ /clear مجاني. وإلا فابدأ بـ /compact ليصبح ما بعده أرخص.",
+        adviceNearFull: "اضغط الآن في الوقت الذي تختاره",
+        adviceNearFullDetail: "السياق ممتلئ بنسبة %d%%. الضغط التلقائي سيختار وقته قريبًا، وربما في منتصف المهمة.",
+        copyCompact: "نسخ /compact",
+        copied: "تم النسخ",
+        setupTitle: "شريط حالة الطرفية غير مُعدّ",
+        setupButton: "إعداد",
+        setupDone: "تم. أعد تشغيل جلسات الطرفية لرؤيته.",
+        setupReplace: "يوجد شريط حالة آخر مُعدّ. هل تستبدله؟ تُحفظ نسخة من settings.json أولًا.",
+        cancel: "إلغاء",
+        setupFailed: "فشل الإعداد: %@",
+        guideTitle: "دليل توفير التوكنات",
+        back: "رجوع",
+        previous: "السابق",
+        next: "التالي",
+        takeaway: "الخلاصة",
+        readDocs: "اقرأ التوثيق",
+        why: "لماذا؟",
+        updateAvailable: "تحديث متاح: %@",
+        download: "تنزيل",
+        checkUpdates: "التحقق من التحديثات",
+        pinned: "مثبّتة",
+        followLatest: "متابعة الأحدث",
+        costEquivalent: "القيمة بسعر API")
+}

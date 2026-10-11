@@ -1,0 +1,70 @@
+import AppKit
+import CacheCueCore
+
+/// What the person chose in the popover's footer, kept in the app's defaults.
+enum Preferences {
+    static let themeKey = "appTheme"
+    static let languageKey = "appLanguage"
+    /// On unless turned off: the daily look at this project's latest release.
+    static let updateCheckKey = "checksForUpdates"
+    static let lastUpdateCheckKey = "lastUpdateCheck"
+    /// The session the person chose to keep in view.
+    static let pinnedSessionKey = "pinnedSession"
+
+    /// The release this build is, or `dev` for a build that is not one.
+    static var version: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+    }
+
+    static var versionLabel: String {
+        AppVersion(version) == nil ? version : "v" + version
+    }
+}
+
+/// Light, dark, or whatever the system is.
+enum AppTheme: String, CaseIterable {
+    case system, light, dark
+
+    /// The footer's button steps through them in this order.
+    var next: AppTheme {
+        switch self {
+        case .system: return .light
+        case .light: return .dark
+        case .dark: return .system
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        }
+    }
+
+    func label(_ strings: Strings) -> String {
+        switch self {
+        case .system: return strings.themeSystem
+        case .light: return strings.themeLight
+        case .dark: return strings.themeDark
+        }
+    }
+
+    /// Nil hands the choice back to the system.
+    var appearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+
+    @MainActor
+    func apply() {
+        NSApplication.shared.appearance = appearance
+    }
+
+    static func stored(_ raw: String?) -> AppTheme {
+        raw.flatMap(AppTheme.init(rawValue:)) ?? .system
+    }
+}

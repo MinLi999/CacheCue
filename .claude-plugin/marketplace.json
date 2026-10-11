@@ -1,0 +1,12 @@
+{
+  "name": "cachecue",
+  "description": "CacheCue for Claude Code: know when to /compact.",
+  "owner": { "name": "Min Li" },
+  "plugins": [
+    {
+      "name": "cachecue",
+      "source": "./plugin",
+      "description": "A band above the prompt in the Claude desktop app: cache hit rate and expiry, 5h/7d limits, context size, session cost, and a cue for when to /compact."
+    }
+  ]
+}
