@@ -17,9 +17,6 @@ public struct Lesson: Identifiable, Equatable {
 /// Every claim is from Anthropic's own pages on prompt caching and on managing costs;
 /// where a lesson gives CacheCue's own rule of thumb, it says so.
 public enum Guide {
-    /// The lessons are written in these; every other language reads them in English.
-    public static let languages: [Language] = [.en, .zhHans, .zhHant]
-
     private static let costs = URL(string: "https://code.claude.com/docs/en/costs")!
     private static let caching = URL(string: "https://code.claude.com/docs/en/prompt-caching")!
     private static let project = URL(string: "https://github.com/MinLi999/CacheCue")!
@@ -31,11 +28,29 @@ public enum Guide {
     ]
 
     public static func lessons(_ language: Language) -> [Lesson] {
+        // Every language the app speaks has the lessons in it: no case falls back to English.
         let texts: [String: Text]
         switch language {
+        case .en: texts = en
         case .zhHans: texts = zhHans
         case .zhHant: texts = zhHant
-        default: texts = en
+        case .ja: texts = ja
+        case .ko: texts = ko
+        case .de: texts = de
+        case .fr: texts = fr
+        case .es: texts = es
+        case .pt: texts = pt
+        case .it: texts = it
+        case .nl: texts = nl
+        case .sv: texts = sv
+        case .pl: texts = pl
+        case .ru: texts = ru
+        case .tr: texts = tr
+        case .id: texts = id
+        case .vi: texts = vi
+        case .th: texts = th
+        case .hi: texts = hi
+        case .ar: texts = ar
         }
         return order.compactMap { entry in
             guard let text = texts[entry.id] else { return nil }

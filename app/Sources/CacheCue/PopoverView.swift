@@ -166,24 +166,51 @@ struct AdviceCard: View {
     }
 }
 
-/// A newer release is out: says which, and opens its page.
+/// A newer release is out: says which, and hands over to the updater to install it.
 struct UpdateCard: View {
-    let release: UpdateCheck.Release
+    let version: String
     let strings: Strings
+    let install: () -> Void
 
     var body: some View {
         Card {
             HStack(spacing: 10) {
                 Image(systemName: "arrow.down.circle.fill").font(.system(size: 14)).foregroundColor(.accentColor)
-                Text(String(format: strings.updateAvailable, release.version.description))
+                Text(String(format: strings.updateAvailable, version))
                     .font(.rounded(11, .semibold)).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
-                Button(strings.download) { NSWorkspace.shared.open(release.page) }
+                Button(strings.download, action: install)
                     .buttonStyle(.plain).font(.rounded(11, .bold)).foregroundColor(.accentColor)
                     .padding(.horizontal, 10).padding(.vertical, 4)
                     .background(Capsule().fill(Color.accentColor.opacity(0.12)))
             }
         }
+    }
+}
+
+/// The update card, watching the updater so it appears the moment a check finds something.
+struct UpdateBanner: View {
+    @ObservedObject var updater: Updater
+    let strings: Strings
+
+    var body: some View {
+        if let version = updater.availableVersion {
+            UpdateCard(version: version, strings: strings, install: updater.showUpdate)
+        }
+    }
+}
+
+/// The switch for Sparkle's scheduled checks.
+struct UpdateSwitch: View {
+    @ObservedObject var updater: Updater
+    let strings: Strings
+
+    var body: some View {
+        Toggle(isOn: Binding(get: { updater.automaticallyChecks }, set: { updater.automaticallyChecks = $0 })) {
+            Text(strings.checkUpdates).font(.rounded(11, .semibold)).lineLimit(1)
+        }
+        .toggleStyle(.switch)
+        .controlSize(.mini)
     }
 }
 
@@ -548,12 +575,11 @@ struct PopoverView: View {
     /// The render's language; the app reads the person's choice from its defaults.
     var previewLanguage: Language?
     var initialPage = Page.dashboard
-    /// A newer release, once the daily check has found one.
-    var update: UpdateCheck.Release?
+    /// Sparkle, in a release build; nil in the off-screen render.
+    var updater: Updater?
     /// Keeps a session in view by its id; nil goes back to following the latest.
     var pin: (String?) -> Void = { _ in }
 
-    @AppStorage(Preferences.updateCheckKey) private var checksForUpdates = true
     @State private var page: Page?
     /// Lesson ids already opened, comma-separated.
     @AppStorage("readLessons") private var readLessons = ""
@@ -604,8 +630,8 @@ struct PopoverView: View {
 
     private var dashboard: some View {
         VStack(spacing: 10) {
-            if let update {
-                UpdateCard(release: update, strings: strings)
+            if let updater {
+                UpdateBanner(updater: updater, strings: strings)
             }
             if let current = summary.current {
                 AdviceCard(
@@ -646,12 +672,7 @@ struct PopoverView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            ZStack {
-                Circle().stroke(Color.accentColor, lineWidth: 1.8).frame(width: 17, height: 17)
-                Circle().trim(from: 0, to: 0.7).stroke(Color.accentColor, style: .init(lineWidth: 1.8, lineCap: .round))
-                    .frame(width: 9, height: 9).rotationEffect(.degrees(-90))
-            }
-            .frame(width: 20, height: 20)
+            BrandMark()
             if shown == .dashboard {
                 Text("CacheCue").font(.system(.headline, design: .rounded))
                 Spacer()
@@ -770,15 +791,18 @@ struct PopoverView: View {
                 if isPreview {
                     paintedSwitch
                     Text(strings.checkUpdates).font(.rounded(11, .semibold)).lineLimit(1)
-                } else {
-                    Toggle(isOn: $checksForUpdates) {
-                        Text(strings.checkUpdates).font(.rounded(11, .semibold)).lineLimit(1)
-                    }
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
+                } else if let updater, updater.canCheck {
+                    UpdateSwitch(updater: updater, strings: strings)
                 }
                 Spacer(minLength: 8)
-                Text(Preferences.versionLabel).font(.rounded(10, .semibold)).monospacedDigit().foregroundColor(.secondary)
+                // Pressing the version checks for an update there and then.
+                Button {
+                    updater?.showUpdate()
+                } label: {
+                    Text(Preferences.versionLabel).font(.rounded(10, .semibold)).monospacedDigit().foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(updater?.canCheck != true)
             }
             if let loginError {
                 Text(loginError).font(.rounded(9)).foregroundColor(.tone(.crit)).fixedSize(horizontal: false, vertical: true)

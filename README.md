@@ -9,9 +9,9 @@
   <img src="docs/screenshots/popover-en-dark.png" width="300" alt="The same popover in dark mode">
 </p>
 
-In the menu bar it is two small gauges and a countdown:
+In the menu bar it is its crescent, two small gauges and a countdown:
 
-<img src="docs/screenshots/label-en-dark.png" width="272" alt="Menu bar item: a 5h gauge, a 7d gauge, a dot and a clock reading 08:11">
+<img src="docs/screenshots/label-en-dark.png" width="272" alt="Menu bar item: a crescent, a 5h gauge, a 7d gauge, a dot and a clock reading 08:11">
 
 - **5h / 7d**: how much of each rate-limit window is used
 - **the clock**: time left before the current session's prompt cache expires (`live` while a turn is running, `exp` once it has expired)
@@ -66,7 +66,7 @@ The book button in the popover opens an eight-lesson guide, each a few points an
 7. Keep the context small to begin with
 8. Reading CacheCue at a glance
 
-The lessons are written in English, 简体中文 and 繁體中文; in the other languages they read in English.
+The lessons are written in all 20 languages the app speaks, and follow the language you choose.
 
 ## Install
 
@@ -102,7 +102,7 @@ The plugin is built on Claude Code's function-hooks API, which is in early acces
 
 ## What it reads, and what it does not
 
-- **One network request, which you can turn off.** Once a day CacheCue asks GitHub for this repository's latest release, to tell you when there is an update. It sends nothing about you or your sessions. The switch is at the bottom of the popover. Nothing else touches the network.
+- **The network is used for updates only, and you can turn that off.** Once a day [Sparkle](https://sparkle-project.org) reads this repository's update feed from GitHub, and downloads a new version when you choose to install it. Nothing about you or your sessions is sent. The switch is at the bottom of the popover. The status line command and the plugin never touch the network.
 - **No credentials.** It never reads your Claude login, Keychain items or cookies.
 - **No transcripts.** It does not read your conversations.
 
@@ -114,12 +114,12 @@ Everything it shows is what Claude Code hands to a status line command or a plug
 - **The cache countdown** in the terminal needs Claude Code 2.1.251 or later.
 - **Several sessions at once:** the limits are your account's, and CacheCue shows the most recently received reading. The cache, context and advice shown are those of the session that last did something; the rest are listed underneath. Click one to keep it in view, and **Follow latest** to let go.
 - **The dollar figure** is Claude Code's own estimate at API list prices. On a Pro or Max subscription your usage is included in the plan, so it is not what you are billed: CacheCue labels it "API-rate value" there, and "Session cost" only when there is no subscription.
-- **Updates:** when a newer release is out, a card at the top of the popover says so and opens the download. The version you are running is at the bottom.
-- **Languages:** English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano, Nederlands, Svenska, Polski, Русский, Türkçe, Bahasa Indonesia, Tiếng Việt, ไทย, हिन्दी and العربية, switchable from the popover along with light and dark appearance. The translations have not been reviewed by native speakers; corrections are welcome.
+- **Updates:** when a newer release is out, a card at the top of the popover says so; press it and the app downloads the update, checks its signature and installs it in place. The version you are running is at the bottom of the popover, and pressing it checks there and then. Version 1.0.0 has no updater of its own: from there, download the newer version once by hand.
+- **Languages:** the interface and the guide are in English, 简体中文, 繁體中文, 日本語, 한국어, Deutsch, Français, Español, Português, Italiano, Nederlands, Svenska, Polski, Русский, Türkçe, Bahasa Indonesia, Tiếng Việt, ไทย, हिन्दी and العربية, switchable from the popover along with light and dark appearance. The translations have not been reviewed by native speakers; corrections are welcome.
 
 ## Build from source
 
-Needs Xcode's command line tools. No dependencies.
+Needs Xcode's command line tools. One dependency, fetched by Swift Package Manager: Sparkle, for updates. The core library and the plugin have none.
 
 ```bash
 cd app
@@ -127,7 +127,7 @@ swift test
 ./build-app.sh --install
 ```
 
-`build-app.sh --install` builds `CacheCue.app`, signs it ad hoc and copies it to `~/Applications`. `build-app.sh --release` makes a universal, notarized DMG with your own Developer ID, taking the next version number by itself; `release.sh` does that and publishes it as a GitHub release.
+`build-app.sh --install` builds `CacheCue.app`, signs it ad hoc and copies it to `~/Applications`. `build-app.sh --release` makes a universal, notarized DMG with your own Developer ID, taking the next version number by itself, and the signed `appcast.xml` that tells installed copies about it; `release.sh` does that and publishes both as a GitHub release. A fork needs its own update-signing key: see the top of `build-app.sh`.
 
 The plugin has its own checks:
 

@@ -7,13 +7,10 @@ import CacheCueCore
 @MainActor
 final class UsageModel: ObservableObject {
     @Published private(set) var summary: Summary
-    /// A newer release, once the daily check has found one.
-    @Published private(set) var update: UpdateCheck.Release?
     private let directory = SnapshotStore.defaultDirectory
     private let defaults = UserDefaults.standard
     private var snapshots: [Snapshot] = []
     private var ticks = 0
-    private var isChecking = false
 
     /// The session kept in view by choice; nil follows whichever did something last.
     private var pinned: String? {
@@ -32,7 +29,6 @@ final class UsageModel: ObservableObject {
         snapshots = SnapshotStore.load(from: directory)
         summary = Summary(
             snapshots: snapshots, now: Date(), pinned: UserDefaults.standard.string(forKey: Preferences.pinnedSessionKey))
-        checkForUpdate()
         // .common keeps the countdown moving while the popover is open.
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
@@ -51,46 +47,16 @@ final class UsageModel: ObservableObject {
         if pinned != nil && !summary.isPinned {
             pinned = nil
         }
-        if ticks % 600 == 0 {
-            checkForUpdate()
-        }
-    }
-
-    /// Asks GitHub for this project's latest release, at most once a day and only while the
-    /// person leaves the check on. The app's one request to the network; it carries nothing
-    /// about the person or their sessions.
-    private func checkForUpdate() {
-        let isOn = defaults.object(forKey: Preferences.updateCheckKey) as? Bool ?? true
-        let last = defaults.object(forKey: Preferences.lastUpdateCheckKey) as? Date
-        guard isOn, !isChecking, AppVersion(Preferences.version) != nil,
-              UpdateCheck.isDue(lastChecked: last, now: Date())
-        else { return }
-        isChecking = true
-        var request = URLRequest(url: UpdateCheck.endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("CacheCue/\(Preferences.version)", forHTTPHeaderField: "User-Agent")
-        URLSession.shared.dataTask(with: request) { data, response, _ in
-            let answered = (response as? HTTPURLResponse)?.statusCode == 200
-            let found = answered ? data.flatMap { UpdateCheck.update(from: $0, running: Preferences.version) } : nil
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.isChecking = false
-                // A failed request is tried again at the next opportunity, not in a day.
-                if answered {
-                    self.defaults.set(Date(), forKey: Preferences.lastUpdateCheckKey)
-                    self.update = found
-                }
-            }
-        }.resume()
     }
 }
 
 struct UsageBarApp: App {
     @StateObject private var model = UsageModel()
+    @StateObject private var updater = Updater()
 
     var body: some Scene {
         MenuBarExtra {
-            PopoverView(summary: model.summary, update: model.update, pin: model.pin)
+            PopoverView(summary: model.summary, updater: updater, pin: model.pin)
                 .background(Material.regular)
         } label: {
             Image(nsImage: MenuBarLabel.image(for: model.summary))
@@ -235,28 +201,37 @@ enum Render {
         }
     }
 
-    /// The app icon: the mark from the popover's header, on the rounded square macOS expects.
+    /// The app icon: a terracotta crescent inside a faint corona, on a dark rounded tile.
     static func writeIcon(to url: URL) {
-        let mint = Color(red: 0.35, green: 0.82, blue: 0.58)
-        let icon = ZStack {
-            RoundedRectangle(cornerRadius: 185, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Color(red: 0.13, green: 0.17, blue: 0.22), Color(red: 0.05, green: 0.07, blue: 0.10)],
-                    startPoint: .top, endPoint: .bottom))
-                .frame(width: 824, height: 824)
-            // The hour running down: a full ring, and inside it what is left.
-            Circle().stroke(mint.opacity(0.28), lineWidth: 56).frame(width: 500, height: 500)
-            Circle().trim(from: 0, to: 0.72)
-                .stroke(mint, style: StrokeStyle(lineWidth: 56, lineCap: .round))
-                .frame(width: 500, height: 500).rotationEffect(.degrees(-90))
-            Circle().trim(from: 0, to: 0.7)
-                .stroke(Color.white, style: StrokeStyle(lineWidth: 46, lineCap: .round))
-                .frame(width: 250, height: 250).rotationEffect(.degrees(-90))
+        let side: CGFloat = 1024
+        let unit = side / 512
+        let moon = Palette.terracottaLight
+        let icon = NSImage(size: NSSize(width: side, height: side), flipped: true) { rect in
+            let tile = NSBezierPath(
+                roundedRect: rect.insetBy(dx: 32 * unit, dy: 32 * unit), xRadius: 104 * unit, yRadius: 104 * unit)
+            NSColor(white: 0.08, alpha: 1).setFill()
+            tile.fill()
+
+            // The bite is cleared inside a layer of its own, so it cuts the moon and not the tile.
+            if let context = NSGraphicsContext.current {
+                let rects = Crescent.rects(in: side)
+                context.saveGraphicsState()
+                context.cgContext.beginTransparencyLayer(auxiliaryInfo: nil)
+                moon.setFill()
+                NSBezierPath(ovalIn: rects.moon).fill()
+                context.compositingOperation = .clear
+                NSBezierPath(ovalIn: rects.bite).fill()
+                context.cgContext.endTransparencyLayer()
+                context.restoreGraphicsState()
+            }
+
+            let corona = NSBezierPath(ovalIn: rect.insetBy(dx: (256 - 175) * unit, dy: (256 - 175) * unit))
+            corona.lineWidth = 14 * unit
+            moon.withAlphaComponent(0.15).setStroke()
+            corona.stroke()
+            return true
         }
-        .frame(width: 1024, height: 1024)
-        let renderer = ImageRenderer(content: icon)
-        renderer.scale = 1
-        save(renderer.nsImage, to: url)
+        save(icon, to: url)
     }
 
     private static func save(_ image: NSImage?, to url: URL, scale: CGFloat = 1) {

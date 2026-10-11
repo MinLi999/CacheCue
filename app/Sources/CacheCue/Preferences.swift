@@ -5,9 +5,6 @@ import CacheCueCore
 enum Preferences {
     static let themeKey = "appTheme"
     static let languageKey = "appLanguage"
-    /// On unless turned off: the daily look at this project's latest release.
-    static let updateCheckKey = "checksForUpdates"
-    static let lastUpdateCheckKey = "lastUpdateCheck"
     /// The session the person chose to keep in view.
     static let pinnedSessionKey = "pinnedSession"
 

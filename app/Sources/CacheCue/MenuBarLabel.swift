@@ -3,8 +3,9 @@ import CacheCueCore
 
 /// The menu bar item: a gauge for each rate-limit window, then the cache countdown.
 ///
-///     5h ▮  7d ▮  ◷ 47:36
+///     ☾ 5h ▮  7d ▮  ◷ 47:36
 ///
+/// The crescent is the app's mark, drawn in the menu bar's own text colour.
 /// A dot before the clock says the popover has something to act on: compact now.
 ///
 /// Drawn by a handler, not baked, so label colours follow the menu bar's own appearance
@@ -35,7 +36,9 @@ enum MenuBarLabel {
         let groupGap: CGFloat = 6
         let clockSize: CGFloat = 10
         let clockToTime: CGFloat = 3
-        var total: CGFloat = 0
+        let markSize: CGFloat = 13
+        let markGap: CGFloat = 5
+        var total: CGFloat = markSize + markGap
         for gauge in gauges {
             total += width(gauge.text, labelFont) + textToBar + barSize.width + groupGap
         }
@@ -55,6 +58,21 @@ enum MenuBarLabel {
                 NSString(string: text).draw(at: NSPoint(x: x, y: (height - size.height) / 2), withAttributes: attributes)
                 x += ceil(size.width)
             }
+
+            // The mark: a disc with a bite out of its upper right. The bite is cleared inside
+            // a layer of its own, so it cuts the disc and nothing behind it.
+            if let context = NSGraphicsContext.current {
+                context.saveGraphicsState()
+                context.cgContext.beginTransparencyLayer(auxiliaryInfo: nil)
+                let moon = NSRect(x: x, y: (height - markSize) / 2, width: markSize, height: markSize)
+                label.setFill()
+                NSBezierPath(ovalIn: moon).fill()
+                context.compositingOperation = .clear
+                NSBezierPath(ovalIn: moon.offsetBy(dx: markSize * 0.24, dy: markSize * 0.24).insetBy(dx: 0.3, dy: 0.3)).fill()
+                context.cgContext.endTransparencyLayer()
+                context.restoreGraphicsState()
+            }
+            x += markSize + markGap
 
             for gauge in gauges {
                 draw(gauge.text, labelFont, gauge.limit == nil ? label.withAlphaComponent(0.45) : label)
