@@ -1,7 +1,7 @@
 {
   "name": "cachecue",
   "description": "CacheCue for Claude Code: know when to /compact.",
-  "owner": { "name": "Min Li" },
+  "owner": { "name": "Elvis Li" },
   "plugins": [
     {
       "name": "cachecue",
