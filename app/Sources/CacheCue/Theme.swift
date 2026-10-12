@@ -24,6 +24,16 @@ enum Palette {
     static let terracottaLight = NSColor(red: 0.906, green: 0.612, blue: 0.459, alpha: 1)
     static let terracottaDark = NSColor(red: 0.80, green: 0.42, blue: 0.30, alpha: 1)
 
+    // The accent for text and icons. The system's blue goes dull on a dark popover, most of
+    // all on a tint of itself, so the dark appearance gets a lighter, brighter blue.
+    static let accent = adaptive(
+        dark: NSColor(red: 0.56, green: 0.80, blue: 1.00, alpha: 1),
+        light: NSColor(red: 0.04, green: 0.40, blue: 0.86, alpha: 1))
+    /// Behind white text, where the bright blue would be too pale to read on.
+    static let accentFill = adaptive(
+        dark: NSColor(red: 0.16, green: 0.50, blue: 0.96, alpha: 1),
+        light: NSColor(red: 0.04, green: 0.40, blue: 0.86, alpha: 1))
+
     static let segmentBg = adaptive(
         dark: NSColor.white.withAlphaComponent(0.06), light: NSColor.black.withAlphaComponent(0.04))
     static let cardBg = adaptive(
@@ -43,6 +53,8 @@ enum Palette {
 }
 
 extension Color {
+    static let brandAccent = Color(nsColor: Palette.accent)
+    static let brandAccentFill = Color(nsColor: Palette.accentFill)
     static let segmentBg = Color(nsColor: Palette.segmentBg)
     static let cardBg = Color(nsColor: Palette.cardBg)
     static let cardBorder = Color(nsColor: Palette.cardBorder)

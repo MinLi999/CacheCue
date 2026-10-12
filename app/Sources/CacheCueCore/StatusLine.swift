@@ -14,7 +14,8 @@ public enum StatusLine {
     }
 
     private enum Tone: String {
-        case dim = "2", ok = "36", warn = "33", crit = "1;31", blue = "34", plain = "0"
+        // Bright blue, not 34: the plain one all but vanishes on a dark terminal.
+        case dim = "2", ok = "36", warn = "33", crit = "1;31", blue = "94", plain = "0"
 
         init(_ level: Level) {
             switch level {

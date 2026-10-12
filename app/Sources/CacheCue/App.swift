@@ -53,10 +53,13 @@ final class UsageModel: ObservableObject {
 struct UsageBarApp: App {
     @StateObject private var model = UsageModel()
     @StateObject private var updater = Updater()
+    @StateObject private var support = SupportModel()
 
     var body: some Scene {
         MenuBarExtra {
-            PopoverView(summary: model.summary, updater: updater, pin: model.pin)
+            PopoverView(
+                summary: model.summary, updater: updater, pin: model.pin, support: support,
+                isShowingSupport: support.isPresented)
                 .background(Material.regular)
         } label: {
             Image(nsImage: MenuBarLabel.image(for: model.summary))
@@ -142,10 +145,13 @@ enum Entry {
         // `--render <folder> [--dark] [--lang <code>] [--page guide|<lesson id>]` writes the
         // popover and the menu bar label as PNGs.
         if let folder = value(after: "--render") {
-            let page: Page = value(after: "--page").map { $0 == "guide" ? .guide : .lesson($0) } ?? .dashboard
+            // `support` and `tickets` draw the support pages with sample tickets, not real ones.
+            let name = value(after: "--page")
+            let support = name == "support" || name == "tickets" || name == "ticket" ? SupportModel.sample(name ?? "") : nil
+            let page: Page = support != nil ? .dashboard : name.map { $0 == "guide" ? .guide : .lesson($0) } ?? .dashboard
             Render.write(
                 summary, to: URL(fileURLWithPath: folder), dark: arguments.contains("--dark"), language: language,
-                page: page)
+                page: page, support: support, name: name)
             return
         }
         // Anything else on the command line is a mistake, not a reason to open the app.
@@ -166,7 +172,10 @@ enum Entry {
 /// without opening the menu.
 @MainActor
 enum Render {
-    static func write(_ summary: Summary, to folder: URL, dark: Bool, language: Language, page: Page) {
+    static func write(
+        _ summary: Summary, to folder: URL, dark: Bool, language: Language, page: Page, support: SupportModel? = nil,
+        name: String? = nil
+    ) {
         let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)!
         NSApplication.shared.appearance = appearance
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -176,10 +185,13 @@ enum Render {
         case .guide: suffix = "guide-" + suffix
         case .lesson(let id): suffix = "lesson-\(id)-" + suffix
         }
+        if support != nil, let name { suffix = "\(name)-" + suffix }
 
         appearance.performAsCurrentDrawingAppearance {
             let backdrop = dark ? Color(white: 0.16) : Color(white: 0.93)
-            let popover = PopoverView(summary: summary, isPreview: true, previewLanguage: language, initialPage: page)
+            let popover = PopoverView(
+                summary: summary, isPreview: true, previewLanguage: language, initialPage: page, support: support,
+                isShowingSupport: support != nil)
                 .background(backdrop)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(16)
@@ -248,5 +260,29 @@ enum Render {
         NSGraphicsContext.restoreGraphicsState()
         try? bitmap.representation(using: .png, properties: [:])?.write(to: url)
         print("wrote \(url.path)")
+    }
+}
+
+extension SupportModel {
+    /// Sample content for the off-screen render of the support pages.
+    static func sample(_ page: String) -> SupportModel {
+        let model = SupportModel()
+        model.isPresented = true
+        let json = """
+        {"ticket":{"id":"T1","email":"you@example.com","description":"The countdown shows --:-- after my first turn in the desktop app.",
+          "attachment_url":"/files/shot.png","status":"replied","created_at":"2026-10-11 20:14"},
+         "replies":[{"id":1,"message":"Thanks for the report. Which version are you on? It is at the bottom of the popover.","is_admin":1,"attachment_url":null,"created_at":"2026-10-11 21:02"},
+                    {"id":2,"message":"1.0.1","is_admin":0,"attachment_url":null,"created_at":"2026-10-11 21:10"}]}
+        """
+        let thread = try? JSONDecoder().decode(SupportThread.self, from: Data(json.utf8))
+        if page == "tickets" || page == "ticket" {
+            model.tab = .tickets
+            model.tickets = thread.map { [$0.ticket] } ?? []
+        }
+        if page == "ticket" {
+            model.openTicket = "T1"
+            model.thread = thread
+        }
+        return model
     }
 }

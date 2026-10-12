@@ -43,7 +43,7 @@ struct Card<Content: View>: View {
 
 struct IconBadge: View {
     let symbol: String
-    var tint: Color = .accentColor
+    var tint: Color = .brandAccent
 
     var body: some View {
         ZStack {
@@ -93,7 +93,7 @@ struct AdviceCard: View {
     var onWhy: (() -> Void)?
     @State private var didCopy = false
 
-    private var tint: Color { .tone(advice.level, default: .accentColor) }
+    private var tint: Color { .tone(advice.level, default: .brandAccent) }
 
     private var symbol: String {
         switch advice.kind {
@@ -175,14 +175,14 @@ struct UpdateCard: View {
     var body: some View {
         Card {
             HStack(spacing: 10) {
-                Image(systemName: "arrow.down.circle.fill").font(.system(size: 14)).foregroundColor(.accentColor)
+                Image(systemName: "arrow.down.circle.fill").font(.system(size: 14)).foregroundColor(.brandAccent)
                 Text(String(format: strings.updateAvailable, version))
                     .font(.rounded(11, .semibold)).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 Button(strings.download, action: install)
-                    .buttonStyle(.plain).font(.rounded(11, .bold)).foregroundColor(.accentColor)
+                    .buttonStyle(.plain).font(.rounded(11, .bold)).foregroundColor(.brandAccent)
                     .padding(.horizontal, 10).padding(.vertical, 4)
-                    .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+                    .background(Capsule().fill(Color.brandAccent.opacity(0.12)))
             }
         }
     }
@@ -239,9 +239,9 @@ struct SetupCard: View {
                                     .buttonStyle(.plain).font(.rounded(11, .semibold)).foregroundColor(.secondary)
                             }
                             Button(strings.setupButton, action: setUp)
-                                .buttonStyle(.plain).font(.rounded(11, .bold)).foregroundColor(.accentColor)
+                                .buttonStyle(.plain).font(.rounded(11, .bold)).foregroundColor(.brandAccent)
                                 .padding(.horizontal, 10).padding(.vertical, 4)
-                                .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+                                .background(Capsule().fill(Color.brandAccent.opacity(0.12)))
                         }
                     }
                 }
@@ -359,7 +359,7 @@ struct SessionCard: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    Pill(text: strings.source(session.source), tint: .accentColor)
+                    Pill(text: strings.source(session.source), tint: .brandAccent)
                 }
 
                 // Cache: the hour running down.
@@ -455,13 +455,13 @@ struct GuideList: View {
                     Card {
                         HStack(alignment: .top, spacing: 12) {
                             ZStack {
-                                Circle().fill(Color.accentColor.opacity(read.contains(lesson.id) ? 0.10 : 0.16))
+                                Circle().fill(Color.brandAccent.opacity(read.contains(lesson.id) ? 0.10 : 0.16))
                                     .frame(width: 26, height: 26)
                                 if read.contains(lesson.id) {
                                     Image(systemName: "checkmark").font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(.accentColor)
+                                        .foregroundColor(.brandAccent)
                                 } else {
-                                    Text("\(index + 1)").font(.rounded(12, .bold)).foregroundColor(.accentColor)
+                                    Text("\(index + 1)").font(.rounded(12, .bold)).foregroundColor(.brandAccent)
                                 }
                             }
                             VStack(alignment: .leading, spacing: 2) {
@@ -497,14 +497,14 @@ struct LessonPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("\(number) / \(count)").font(.rounded(9, .bold)).foregroundColor(.accentColor)
+                Text("\(number) / \(count)").font(.rounded(9, .bold)).foregroundColor(.brandAccent)
                 Text(lesson.title).font(.system(.title3, design: .rounded)).fontWeight(.bold)
                     .fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: 9) {
                 ForEach(Array(lesson.points.enumerated()), id: \.offset) { _, point in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Circle().fill(Color.accentColor.opacity(0.6)).frame(width: 4, height: 4)
+                        Circle().fill(Color.brandAccent.opacity(0.6)).frame(width: 4, height: 4)
                             .alignmentGuide(.firstTextBaseline) { $0[.bottom] + 3 }
                         Text(point).font(.rounded(11)).lineSpacing(2).fixedSize(horizontal: false, vertical: true)
                     }
@@ -521,7 +521,7 @@ struct LessonPage: View {
 
             HStack(spacing: 8) {
                 if isPreview {
-                    sourceLabel.foregroundColor(.accentColor)
+                    sourceLabel.foregroundColor(.brandAccent)
                 } else {
                     Link(destination: lesson.source) { sourceLabel }
                 }
@@ -551,9 +551,9 @@ struct LessonPage: View {
                 Text(title).font(.rounded(11, .bold)).lineLimit(1)
                 if !leading { Image(systemName: symbol).font(.system(size: 9, weight: .bold)) }
             }
-            .foregroundColor(.accentColor)
+            .foregroundColor(.brandAccent)
             .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+            .background(Capsule().fill(Color.brandAccent.opacity(0.12)))
         }
         .buttonStyle(.plain)
     }
@@ -579,6 +579,10 @@ struct PopoverView: View {
     var updater: Updater?
     /// Keeps a session in view by its id; nil goes back to following the latest.
     var pin: (String?) -> Void = { _ in }
+    /// The support pages' state, which outlives the popover.
+    var support: SupportModel?
+    /// Whether the support pages are showing; mirrors `support.isPresented`.
+    var isShowingSupport = false
 
     @State private var page: Page?
     /// Lesson ids already opened, comma-separated.
@@ -606,6 +610,9 @@ struct PopoverView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            if let support, isShowingSupport {
+                SupportView(model: support, strings: strings, isPreview: isPreview)
+            } else {
             switch shown {
             case .dashboard:
                 dashboard
@@ -623,8 +630,10 @@ struct PopoverView: View {
                     }
                 }
             }
+            }
         }
         .frame(width: 320)
+        .tint(.brandAccent)
         .environment(\.layoutDirection, language.isRightToLeft ? .rightToLeft : .leftToRight)
     }
 
@@ -673,12 +682,25 @@ struct PopoverView: View {
     private var header: some View {
         HStack(spacing: 10) {
             BrandMark()
-            if shown == .dashboard {
+            if isShowingSupport {
+                Text(strings.support).font(.system(.headline, design: .rounded)).lineLimit(1)
+                Spacer()
+                Button {
+                    support?.isPresented = false
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: "chevron.backward").font(.system(size: 9, weight: .bold))
+                        Text(strings.back).font(.rounded(11, .semibold))
+                    }
+                    .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            } else if shown == .dashboard {
                 Text("CacheCue").font(.system(.headline, design: .rounded))
                 Spacer()
                 Pill(
                     text: sessionCount == 0 ? strings.idle : String(format: strings.activeCount, sessionCount),
-                    tint: sessionCount == 0 ? .secondary : .accentColor)
+                    tint: sessionCount == 0 ? .secondary : .brandAccent)
                 Button {
                     page = .guide
                 } label: {
@@ -686,12 +708,24 @@ struct PopoverView: View {
                         Image(systemName: "book.fill").font(.system(size: 10))
                         Text("\(read.intersection(lessons.map(\.id)).count)/\(lessons.count)").font(.rounded(9, .bold)).monospacedDigit()
                     }
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(.brandAccent)
                     .padding(.horizontal, 7).padding(.vertical, 3)
-                    .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+                    .background(Capsule().fill(Color.brandAccent.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
                 .help(strings.guideTitle)
+                if let support {
+                    Button {
+                        support.isPresented = true
+                    } label: {
+                        Image(systemName: "lifepreserver").font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.brandAccent)
+                            .padding(.horizontal, 6).padding(.vertical, 3)
+                            .background(Capsule().fill(Color.brandAccent.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
+                    .help(strings.support)
+                }
             } else {
                 Text(strings.guideTitle).font(.system(.headline, design: .rounded)).lineLimit(1).minimumScaleFactor(0.8)
                 Spacer()
@@ -838,7 +872,7 @@ struct PopoverView: View {
 
     private var paintedSwitch: some View {
         ZStack(alignment: launchesAtLogin ? .trailing : .leading) {
-            Capsule().fill(launchesAtLogin ? Color.accentColor : Color.secondary.opacity(0.3)).frame(width: 26, height: 15)
+            Capsule().fill(launchesAtLogin ? Color.brandAccent : Color.secondary.opacity(0.3)).frame(width: 26, height: 15)
             Circle().fill(Color.white).frame(width: 13, height: 13).padding(.horizontal, 1)
         }
     }

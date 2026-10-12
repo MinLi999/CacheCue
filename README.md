@@ -100,9 +100,22 @@ The desktop app does not run status line commands. To get the same band above th
 
 The plugin is built on Claude Code's function-hooks API, which is in early access and may change between releases without notice. In the desktop app it only sees a turn's totals when the turn ends, so there its hit rate is per turn, not per request, and its countdown assumes the one-hour cache.
 
+## Getting help
+
+The lifebuoy button in the popover opens support: write to the developer, attach a screenshot if it helps, and follow the conversation under **My Tickets**, all without leaving the app.
+
+<p>
+  <img src="docs/screenshots/support-en-light.png" width="300" alt="The support form: email, description, optional attachment, and a note on what is sent">
+  <img src="docs/screenshots/ticket-en-dark.png" width="300" alt="A ticket's conversation in dark mode">
+</p>
+
 ## What it reads, and what it does not
 
-- **The network is used for updates only, and you can turn that off.** Once a day [Sparkle](https://sparkle-project.org) reads this repository's update feed from GitHub, and downloads a new version when you choose to install it. Nothing about you or your sessions is sent. The switch is at the bottom of the popover. The status line command and the plugin never touch the network.
+- **The network is used for two things, and never for your sessions.**
+  - *Updates*, which you can turn off: once a day [Sparkle](https://sparkle-project.org) reads this repository's update feed from GitHub, and downloads a new version when you choose to install it.
+  - *Support tickets*, only when you open the support page yourself: sending a ticket sends your email, what you wrote, an optional attachment and a random ID for this Mac (so "My Tickets" can find it again) to the developer's support server.
+
+  The status line command and the plugin never touch the network.
 - **No credentials.** It never reads your Claude login, Keychain items or cookies.
 - **No transcripts.** It does not read your conversations.
 
