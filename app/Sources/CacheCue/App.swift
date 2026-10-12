@@ -26,6 +26,10 @@ final class UsageModel: ObservableObject {
     init() {
         AppTheme.stored(UserDefaults.standard.string(forKey: Preferences.themeKey)).apply()
         SnapshotStore.prune(in: directory, now: Date())
+        // A plugin this app installed moves with the app: an update brings its copy along.
+        PluginSetup.refresh(
+            bundled: PluginSetup.bundled(resources: Bundle.main.resourceURL),
+            home: FileManager.default.homeDirectoryForCurrentUser)
         snapshots = SnapshotStore.load(from: directory)
         summary = Summary(
             snapshots: snapshots, now: Date(), pinned: UserDefaults.standard.string(forKey: Preferences.pinnedSessionKey))
@@ -75,32 +79,27 @@ enum Entry {
         let arguments = CommandLine.arguments
 
         // `statusline` is what Claude Code's statusLine setting runs: session JSON on stdin,
-        // one line out, and the session's snapshot left for the menu bar. No AppKit, no
-        // window: it runs every few seconds.
+        // the session's snapshot left for the menu bar, and nothing printed, so the terminal
+        // shows no line. No AppKit, no window: it runs every few seconds.
         if arguments.dropFirst().first == "statusline" {
             let directory = SnapshotStore.defaultDirectory
             let input = FileHandle.standardInput.readDataToEndOfFile()
             let sessionID = (try? JSONSerialization.jsonObject(with: input) as? [String: Any])?["session_id"] as? String
             let previous = sessionID.flatMap { SnapshotStore.read($0, in: directory) }
-            let output = StatusLine.render(
-                input: input, now: Date(), previous: previous,
-                color: ProcessInfo.processInfo.environment["NO_COLOR"]?.isEmpty ?? true)
-            if let snapshot = output.snapshot, snapshot != previous {
-                // The menu bar going stale must not cost the terminal its line.
+            if let snapshot = StatusLine.snapshot(input: input, now: Date(), previous: previous), snapshot != previous {
                 try? SnapshotStore.write(snapshot, in: directory)
             }
-            print(output.line)
             return
         }
-        // `setup-statusline [--force]` does what the popover's Set up button does.
+        // `setup-statusline [--force]` does what the popover's Connect button for terminal sessions does.
         if arguments.dropFirst().first == "setup-statusline" {
             if case .other(let command) = StatusLineSetup.state(), !arguments.contains("--force") {
-                print("Another status line is configured:\n  \(command)\nRun again with --force to replace it.")
+                print("Another status line is configured:\n  \(command)\nRun again with --force to replace it. CacheCue shows nothing in its place.")
                 exit(1)
             }
             do {
                 try StatusLineSetup.install(executable: Bundle.main.executablePath ?? arguments[0])
-                print("Status line set up in \(StatusLineSetup.defaultSettingsURL.path)")
+                print("Terminal sessions connected through \(StatusLineSetup.defaultSettingsURL.path). Nothing is shown in the terminal; the figures are in the menu bar.")
             } catch {
                 print("Setup failed: \(error.localizedDescription)")
                 exit(1)
@@ -149,7 +148,8 @@ enum Entry {
             // ones; `reply` draws the first page as it looks when support has answered.
             let name = value(after: "--page")
             let support = ["support", "tickets", "ticket", "reply"].contains(name ?? "") ? SupportModel.sample(name ?? "") : nil
-            let page: Page = support != nil ? .dashboard : name.map { $0 == "guide" ? .guide : .lesson($0) } ?? .dashboard
+            // `setup` draws the first page of a Mac where nothing feeds the app yet.
+            let page: Page = support != nil || name == "setup" ? .dashboard : name.map { $0 == "guide" ? .guide : .lesson($0) } ?? .dashboard
             Render.write(
                 summary, to: URL(fileURLWithPath: folder), dark: arguments.contains("--dark"), language: language,
                 page: page, support: support, name: name)
@@ -186,13 +186,14 @@ enum Render {
         case .guide: suffix = "guide-" + suffix
         case .lesson(let id): suffix = "lesson-\(id)-" + suffix
         }
-        if support != nil, let name { suffix = "\(name)-" + suffix }
+        if support != nil || name == "setup", let name { suffix = "\(name)-" + suffix }
 
         appearance.performAsCurrentDrawingAppearance {
             let backdrop = dark ? Color(white: 0.16) : Color(white: 0.93)
             let popover = PopoverView(
                 summary: summary, isPreview: true, previewLanguage: language, initialPage: page, support: support,
-                isShowingSupport: support?.isPresented ?? false, unreadReplies: name == "reply" ? 1 : 0)
+                isShowingSupport: support?.isPresented ?? false, unreadReplies: name == "reply" ? 1 : 0,
+                previewsSetup: name == "setup")
                 .background(backdrop)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(16)

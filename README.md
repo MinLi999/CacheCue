@@ -74,31 +74,31 @@ Requires macOS 13 or later.
 
 1. Download [CacheCue.dmg](https://github.com/elvisli999/CacheCue/releases/latest/download/CacheCue.dmg) (or pick a version from [Releases](https://github.com/elvisli999/CacheCue/releases)) and drag CacheCue to Applications. It is signed and notarized, and runs on Apple silicon and Intel.
 2. Open it. It lives in the menu bar and has no Dock icon.
-3. Click the menu bar item, then **Set up** on the "Terminal status line is not set up" card.
+3. Click the menu bar item and press **Connect** on each card that fits how you use Claude Code:
+   - **Terminal sessions are not connected** for Claude Code in a terminal.
+   - **Claude desktop app is not connected** for the Claude desktop app.
 
-Step 3 points Claude Code's `statusLine` setting at CacheCue's own command. It keeps every other setting, and saves a copy of the file first as `~/.claude/settings.json.cachecue-backup`. If you already have a status line, CacheCue asks before replacing it. From a terminal the same thing is:
+Then send a message in Claude Code, and the session shows up in the menu bar. CacheCue shows only what Claude Code hands it, so until one of the two is connected the popover stays empty and says so. A card you have no use for can be put away with its ✕.
+
+CacheCue draws nothing inside Claude Code itself: no status line in the terminal, no band in the desktop app. Everything it has to say is in the menu bar.
+
+### What the two buttons do
+
+**Terminal sessions.** Points Claude Code's `statusLine` setting at CacheCue's own command, which reads the figures Claude Code pipes to it, leaves them for the menu bar and prints nothing. It keeps every other setting, and saves a copy of the file first as `~/.claude/settings.json.cachecue-backup`. If you already have a status line, CacheCue asks before replacing it: yours would stop showing, and nothing takes its place. From a terminal the same thing is:
 
 ```bash
 /Applications/CacheCue.app/Contents/MacOS/CacheCue setup-statusline
 ```
 
-Restart your terminal sessions and each one gets a status line, which is also what feeds the menu bar:
+Restart your terminal sessions afterwards.
 
-```text
-cache 94% avg 96% ◷47:36 | 5h ▰▱▱▱▱▱▱▱ 2% ↻4h36m | 7d ▰▰▰▰▰▰▱▱ 76% ↻13h56m | ↑68.6k ↓9.6k ◆1.0M | $206.51 | ⇲ compact at next break
-```
-
-From left to right: this request's cache hit rate, the session's, time until the cache expires; the 5-hour and 7-day limits with their reset countdowns; context tokens, last output tokens and the window size; the session's cost; and the cue to compact, when there is one.
-
-### Claude desktop app (optional)
-
-The desktop app does not run status line commands. To get the same band above the prompt there, and to have desktop sessions show up in the menu bar, install the plugin from a terminal session:
+**Claude desktop app.** The desktop app does not run status line commands, so CacheCue carries a small Claude Code plugin for it. Connect copies the plugin to `~/Library/Application Support/CacheCue/marketplace/` and asks the Claude Code already on your Mac (the terminal one, or the copy the desktop app keeps for itself) to install it from there: no terminal, no download. New sessions in the desktop app then show up in the menu bar, and when CacheCue updates, its copy of the plugin updates with it. If you would rather install it yourself, from a terminal session:
 
 ```text
 /plugin install cachecue --marketplace elvisli999/CacheCue
 ```
 
-The plugin is built on Claude Code's function-hooks API, which is in early access and may change between releases without notice. In the desktop app it only sees a turn's totals when the turn ends, so there its hit rate is per turn, not per request, and its countdown assumes the one-hour cache.
+The plugin is built on Claude Code's function-hooks API, which is in early access and may change between releases without notice. In the desktop app it only sees a turn's totals when the turn ends, so there the hit rate is per turn, not per request, and the countdown assumes the one-hour cache.
 
 ## Getting help
 
@@ -119,11 +119,11 @@ The lifebuoy button in the popover opens support: write to the developer, attach
 - **No credentials.** It never reads your Claude login, Keychain items or cookies.
 - **No transcripts.** It does not read your conversations.
 
-Everything it shows is what Claude Code hands to a status line command or a plugin: token counts, rate-limit percentages, the cache expiry time and the session's cost. Each session's figures are kept as one small JSON file in `~/Library/Caches/CacheCue/`, which the menu bar app reads; files untouched for a week are removed.
+Everything it shows is what Claude Code hands to a status line command or a plugin: token counts, rate-limit percentages, the cache expiry time and the session's cost. Each session's figures are kept as one small JSON file in `~/Library/Caches/CacheCue/`, which the menu bar app reads; files untouched for a week are removed. The only other things it writes are the ones you ask for with a Connect button: the `statusLine` entry in `~/.claude/settings.json`, and its copy of the plugin in `~/Library/Application Support/CacheCue/`.
 
 ## Good to know
 
-- **Rate limits** appear only on Claude Pro and Max plans, after a session's first response.
+- **Rate limits** appear only on Claude Pro and Max plans, after a session's first response: Claude Code tells no other kind of account its limits. On a team, enterprise or API-key account the two limit cards say so and stay empty, while the cache, context and cost figures work as usual.
 - **The cache countdown** in the terminal needs Claude Code 2.1.251 or later.
 - **Several sessions at once:** the limits are your account's, and CacheCue shows the most recently received reading. The cache, context and advice shown are those of the session that last did something; the rest are listed underneath. Click one to keep it in view, and **Follow latest** to let go.
 - **The dollar figure** is Claude Code's own estimate at API list prices. On a Pro or Max subscription your usage is included in the plan, so it is not what you are billed: CacheCue labels it "API-rate value" there, and "Session cost" only when there is no subscription.
@@ -157,9 +157,9 @@ terminal session ── statusLine ──▶ CacheCue statusline ─┐
 desktop session ─── cachecue plugin ────────────────────┘
 ```
 
-- `app/Sources/CacheCueCore`: everything that decides what is shown (the advice rules, the guide, the status line, snapshots, the update check, the 20 languages), with no UI code, and the tests that cover it.
+- `app/Sources/CacheCueCore`: everything that decides what is shown (the advice rules, the guide, reading what Claude Code sends, snapshots, connecting the two sources, the update check, the 20 languages), with no UI code, and the tests that cover it.
 - `app/Sources/CacheCue`: the SwiftUI popover, the menu bar item and the command-line entry points.
-- `plugin/`: the band for the desktop app.
+- `plugin/`: what feeds the menu bar from desktop app sessions. It draws nothing; `build-app.sh` packs it into the app.
 
 ## Support the project
 

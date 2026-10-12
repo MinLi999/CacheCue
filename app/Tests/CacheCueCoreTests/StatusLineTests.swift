@@ -30,73 +30,37 @@ final class StatusLineTests: XCTestCase {
         return try! JSONSerialization.data(withJSONObject: json)
     }
 
-    func render(_ data: Data, previous: Snapshot? = nil, color: Bool = false) -> StatusLine.Output {
-        StatusLine.render(input: data, now: now, previous: previous, color: color)
+    func snapshot(_ data: Data, previous: Snapshot? = nil) -> Snapshot? {
+        StatusLine.snapshot(input: data, now: now, previous: previous)
     }
 
-    func testTheWholeLine() {
-        XCTAssertEqual(
-            render(input()).line,
-            "cache 94% avg 96% ◷47:36 | 5h ▰▱▱▱▱▱▱▱ 2% ↻4h36m | 7d ▰▰▰▰▰▰▱▱ 76% ↻13h56m | ↑68.6k ↓9.6k ◆1.0M | $206.51")
-    }
-
-    func testEveryInputAnswersWithALine() {
-        let empty = "cache -- ◷--:-- | 5h -- | 7d -- | ↑0 ↓0 ◆0 | $0.00"
+    func testInputThatNamesNoSessionMakesNoSnapshot() {
         for data in [Data(), Data("{}".utf8), Data("not json".utf8), Data("[1,2]".utf8), Data("null".utf8)] {
-            let output = render(data)
-            XCTAssertEqual(output.line, empty)
-            XCTAssertNil(output.snapshot)
+            XCTAssertNil(snapshot(data))
         }
         // A session before its first response: nulls where figures will be.
         let fresh = Data("""
             {"session_id":"s2","context_window":{"current_usage":null,"used_percentage":null,\
             "context_window_size":200000,"total_input_tokens":0,"total_output_tokens":0},"cost":{"total_cost_usd":0}}
             """.utf8)
-        XCTAssertEqual(render(fresh).line, "cache -- ◷--:-- | 5h -- | 7d -- | ↑0 ↓0 ◆200.0k | $0.00")
-        XCTAssertEqual(render(fresh).snapshot?.sessionID, "s2")
+        let made = snapshot(fresh)
+        XCTAssertEqual(made?.sessionID, "s2")
+        XCTAssertNil(made?.cache.turnHit)
+        XCTAssertEqual(made?.limits, [:])
+        XCTAssertEqual(made?.context.window, 200_000)
     }
 
-    func testCacheStatesAndTheCompactCue() {
-        // An older Claude Code sends no prompt_cache: no average, no countdown.
-        XCTAssertTrue(render(input { $0["prompt_cache"] = nil }).line.hasPrefix("cache 94% ◷--:-- |"))
-        // Expired at 68.6k: the next message reprocesses it all, so there is a choice to make.
-        let expired = render(input { $0["prompt_cache"] = ["expires_at": self.at - 5, "hit_ratio": 0.9] }).line
-        XCTAssertTrue(expired.hasPrefix("cache 94% avg 90% ◷expired |"))
-        XCTAssertTrue(expired.hasSuffix("| ⇲ compact or clear"))
-        // Expired on a small context: said, but nothing worth doing about it.
-        let small = render(input {
-            var context = $0["context_window"] as! [String: Any]
-            context["total_input_tokens"] = 20_000
-            $0["context_window"] = context
-            $0["prompt_cache"] = ["expires_at": self.at - 5]
-        }).line
-        XCTAssertTrue(small.contains("◷expired"))
-        XCTAssertFalse(small.contains("⇲"))
-
-        func large(_ cache: [String: Any], percent: Double = 20) -> String {
-            render(input {
-                var context = $0["context_window"] as! [String: Any]
-                context["total_input_tokens"] = 200_000
-                context["used_percentage"] = percent
-                $0["context_window"] = context
-                $0["prompt_cache"] = cache
-            }).line
-        }
-        XCTAssertTrue(large(["expires_at": at + 3000]).hasSuffix("| ⇲ compact at next break"))
-        XCTAssertTrue(large(["expires_at": at + 300]).hasSuffix("| ⇲ compact now"))
-        XCTAssertTrue(large(["expires_at": at - 1]).hasSuffix("| ⇲ compact or clear"))
-        XCTAssertTrue(large(["expires_at": at + 3000], percent: 90).hasSuffix("| ⇲ compact now"))
-    }
-
-    func testColorIsOptIn() {
-        XCTAssertFalse(render(input()).line.contains("\u{1B}"))
-        let colored = render(input(), color: true).line
-        XCTAssertTrue(colored.contains("\u{1B}[1;36m94%\u{1B}[0m"))
-        XCTAssertTrue(colored.contains("\u{1B}[33m76%\u{1B}[0m"))
+    func testAnAccountWithoutLimitsAndAnOlderClaudeCode() throws {
+        // Only Pro and Max plans are told their limits; an older Claude Code sends no prompt_cache.
+        let made = try XCTUnwrap(snapshot(input { $0["rate_limits"] = nil; $0["prompt_cache"] = nil }))
+        XCTAssertEqual(made.limits, [:])
+        XCTAssertNil(made.cache.expiresAt)
+        XCTAssertNil(made.cache.avgHit)
+        XCTAssertEqual(made.cache.turnHit, 94)
     }
 
     func testSnapshot() throws {
-        let snapshot = try XCTUnwrap(render(input()).snapshot)
+        let snapshot = try XCTUnwrap(snapshot(input()))
         XCTAssertEqual(snapshot, Snapshot(
             v: 1, source: "terminal", sessionID: "s1", cwd: "/Users/t/Code/my-app",
             cache: .init(turnHit: 94, avgHit: 96, expiresAt: at + 2_856, active: false),
@@ -111,10 +75,10 @@ final class StatusLineTests: XCTestCase {
     }
 
     func testTimestampsMoveOnlyWithTheFigures() throws {
-        let first = try XCTUnwrap(render(input()).snapshot)
+        let first = try XCTUnwrap(snapshot(input()))
         let later = now.addingTimeInterval(30)
         func again(_ data: Data, after previous: Snapshot) throws -> Snapshot {
-            try XCTUnwrap(StatusLine.render(input: data, now: later, previous: previous, color: false).snapshot)
+            try XCTUnwrap(StatusLine.snapshot(input: data, now: later, previous: previous))
         }
         // The timer firing with nothing new leaves the snapshot exactly as it was.
         XCTAssertEqual(try again(input(), after: first), first)
@@ -133,7 +97,7 @@ final class StatusLineTests: XCTestCase {
     func testSnapshotsRoundTripThroughTheStore() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("cachecue-\(UUID().uuidString)")
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-        let snapshot = try XCTUnwrap(render(input()).snapshot)
+        let snapshot = try XCTUnwrap(snapshot(input()))
         try SnapshotStore.write(snapshot, in: directory)
         XCTAssertEqual(SnapshotStore.read("s1", in: directory), snapshot)
         XCTAssertEqual(SnapshotStore.load(from: directory), [snapshot])

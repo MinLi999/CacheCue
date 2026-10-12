@@ -63,6 +63,30 @@ cp "$BIN_DIR/CacheCue" "$APP/Contents/MacOS/CacheCue"
 # Sparkle travels inside the app; ditto keeps the framework's symlinks as they are.
 ditto "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 
+# The desktop app's plugin travels inside the app as a one-plugin marketplace, so the popover
+# can install it with no terminal and no download. It sits beside this folder: `mods/cachecue`
+# in the working project, `plugin` in the public repository.
+PLUGIN_SRC="../mods/cachecue"
+[[ -d "$PLUGIN_SRC" ]] || PLUGIN_SRC="../plugin"
+[[ -f "$PLUGIN_SRC/.claude-plugin/plugin.json" ]] || { echo "The plugin is missing from $PLUGIN_SRC." >&2; exit 1; }
+MARKET="$APP/Contents/Resources/marketplace"
+mkdir -p "$MARKET/.claude-plugin"
+rsync -a --exclude '.claude-plugin/types' --exclude tsconfig.json --exclude tests --exclude .DS_Store "$PLUGIN_SRC/" "$MARKET/plugin/"
+cat > "$MARKET/.claude-plugin/marketplace.json" <<'JSON'
+{
+  "name": "cachecue",
+  "description": "CacheCue for Claude Code: know when to /compact.",
+  "owner": { "name": "Elvis Li" },
+  "plugins": [
+    {
+      "name": "cachecue",
+      "source": "./plugin",
+      "description": "Feeds the CacheCue menu bar app from Claude desktop app sessions. Draws nothing in Claude Code itself."
+    }
+  ]
+}
+JSON
+
 # The icon is drawn by the app itself, then cut to the sizes an .icns holds.
 ICONSET="$(mktemp -d)/AppIcon.iconset"
 mkdir -p "$ICONSET"

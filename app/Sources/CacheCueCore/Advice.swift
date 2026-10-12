@@ -100,16 +100,6 @@ public struct CompactAdvice: Equatable {
         case .optional: return String(format: strings.adviceOptionalDetail, size)
         }
     }
-
-    /// The terminal status line's few words, where there is something to do or plan for.
-    public var statusLineCue: String? {
-        switch kind {
-        case .nearFull, .beforeExpiry: return "compact now"
-        case .cold: return "compact or clear"
-        case .worthIt: return "compact at next break"
-        case .running, .notNeeded, .optional: return nil
-        }
-    }
 }
 
 extension SessionView {

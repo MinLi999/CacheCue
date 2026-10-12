@@ -1,7 +1,7 @@
 {
   "name": "cachecue",
-  "version": "0.3.0",
-  "description": "CacheCue for Claude Code: a band above the prompt with cache hit rate and expiry, 5h/7d limits, context size, session cost, and a cue for when to /compact. Feeds the CacheCue menu bar app.",
+  "version": "0.4.0",
+  "description": "Feeds the CacheCue menu bar app from Claude desktop app sessions: cache hit rate and expiry, 5h/7d limits, context size and session cost. Draws nothing in Claude Code itself.",
   "types": "./types/index.d.ts",
   "author": {
     "name": "Elvis Li"

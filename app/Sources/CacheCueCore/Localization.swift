@@ -122,7 +122,7 @@ public struct Strings: Equatable {
     public var copyCompact: String
     public var copied: String
 
-    // Setting up the terminal status line.
+    // Connecting terminal sessions (through the statusLine setting, which then prints nothing).
     public var setupTitle: String
     public var setupButton: String
     public var setupDone: String
@@ -189,6 +189,18 @@ public struct Strings: Equatable {
     public var supportNewReply: String
     /// The footer's link to the developer's tip page.
     public var buyCoffee: String
+    /// The empty state while nothing feeds the app yet.
+    public var connectTitle: String
+    public var connectHint: String
+    /// The card that installs the desktop app's plugin.
+    public var desktopSetupTitle: String
+    public var desktopSetupWorking: String
+    public var desktopSetupDone: String
+    public var desktopSetupNoClaude: String
+    /// Puts a setup card away for good.
+    public var setupHide: String
+    /// Where a limit's reset time would be, on an account Claude Code tells no limits.
+    public var limitNotReported: String
 
     public func source(_ source: String) -> String {
         switch source {
@@ -260,10 +272,10 @@ extension Strings {
         adviceNearFullDetail: "Context is %d%% full. Auto-compact will soon pick its own moment, possibly mid-task.",
         copyCompact: "Copy /compact",
         copied: "Copied",
-        setupTitle: "Terminal status line is not set up",
-        setupButton: "Set up",
-        setupDone: "Done. Restart your terminal sessions to see it.",
-        setupReplace: "Another status line is configured. Replace it? settings.json is backed up first.",
+        setupTitle: "Terminal sessions are not connected",
+        setupButton: "Connect",
+        setupDone: "Done. Restart your terminal sessions and they will show up here.",
+        setupReplace: "Another status line is configured. Connecting replaces it, and CacheCue shows nothing in its place. Replace it? settings.json is backed up first.",
         cancel: "Cancel",
         setupFailed: "Setup failed: %@",
         guideTitle: "Token-saving guide",
@@ -312,7 +324,15 @@ extension Strings {
         supportPrivacy: "Sends your email, what you write here and a random ID for this Mac to the developer's support server. Nothing about your sessions.",
         supportChecksReplies: "Once you have sent a ticket, CacheCue asks the server every few minutes whether support has replied, sending only that random ID, until your tickets are closed.",
         supportNewReply: "New reply from support",
-        buyCoffee: "Buy me a coffee")
+        buyCoffee: "Buy me a coffee",
+        connectTitle: "Not connected to Claude Code yet",
+        connectHint: "CacheCue shows only what Claude Code sends it. Finish the setup below, then send a message in Claude Code.",
+        desktopSetupTitle: "Claude desktop app is not connected",
+        desktopSetupWorking: "Installing the plugin…",
+        desktopSetupDone: "Done. New sessions in the Claude desktop app will show up here.",
+        desktopSetupNoClaude: "Claude Code was not found on this Mac. Install the Claude desktop app or Claude Code first.",
+        setupHide: "Don't show again",
+        limitNotReported: "Only reported on Pro and Max plans")
 
     static let zhHans = Strings(
         fiveHourTitle: "5 小时额度", sevenDayTitle: "7 天额度", used: "已用", noReading: "暂无读数",
@@ -344,10 +364,10 @@ extension Strings {
         adviceNearFullDetail: "上下文已用 %d%%。自动压缩很快会自己挑时机,可能正好在任务中途。",
         copyCompact: "复制 /compact",
         copied: "已复制",
-        setupTitle: "终端状态栏尚未配置",
-        setupButton: "配置",
-        setupDone: "已完成。重启终端里的会话即可看到。",
-        setupReplace: "已配置了别的状态栏,要替换吗?会先备份 settings.json。",
+        setupTitle: "终端会话尚未连接",
+        setupButton: "连接",
+        setupDone: "已完成。重启终端里的会话，它们就会显示在这里。",
+        setupReplace: "已配置了别的状态栏。连接会替换它，而 CacheCue 不会在那里显示任何内容。要替换吗？会先备份 settings.json。",
         cancel: "取消",
         setupFailed: "配置失败:%@",
         guideTitle: "省 token 教程",
@@ -396,7 +416,15 @@ extension Strings {
         supportPrivacy: "会把你的邮箱、这里填写的内容和本机的一个随机 ID 发送到开发者的支持服务器。不包含任何会话数据。",
         supportChecksReplies: "提交工单后，CacheCue 会每隔几分钟向服务器询问是否有回复（只发送那个随机 ID），直到工单全部关闭。",
         supportNewReply: "支持有新回复",
-        buyCoffee: "请我喝杯咖啡")
+        buyCoffee: "请我喝杯咖啡",
+        connectTitle: "尚未连接 Claude Code",
+        connectHint: "CacheCue 只显示 Claude Code 送来的数据。先完成下面的连接，再在 Claude Code 里发一条消息。",
+        desktopSetupTitle: "Claude 桌面 app 尚未连接",
+        desktopSetupWorking: "正在安装插件…",
+        desktopSetupDone: "完成。Claude 桌面 app 里新开的会话会显示在这里。",
+        desktopSetupNoClaude: "这台 Mac 上没有找到 Claude Code。请先安装 Claude 桌面 app 或 Claude Code。",
+        setupHide: "不再显示",
+        limitNotReported: "仅 Pro / Max 订阅提供")
 
     static let zhHant = Strings(
         fiveHourTitle: "5 小時額度", sevenDayTitle: "7 天額度", used: "已用", noReading: "暫無讀數",
@@ -428,10 +456,10 @@ extension Strings {
         adviceNearFullDetail: "上下文已用 %d%%。自動壓縮很快會自己挑時機,可能正好在任務中途。",
         copyCompact: "複製 /compact",
         copied: "已複製",
-        setupTitle: "終端機狀態列尚未設定",
-        setupButton: "設定",
-        setupDone: "完成。重新啟動終端機裡的工作階段即可看到。",
-        setupReplace: "已設定其他狀態列,要取代嗎?會先備份 settings.json。",
+        setupTitle: "終端機工作階段尚未連接",
+        setupButton: "連接",
+        setupDone: "已完成。重新啟動終端機裡的工作階段，它們就會顯示在這裡。",
+        setupReplace: "已設定了別的狀態列。連接會取代它，而 CacheCue 不會在那裡顯示任何內容。要取代嗎？會先備份 settings.json。",
         cancel: "取消",
         setupFailed: "設定失敗:%@",
         guideTitle: "省 token 教學",
@@ -480,7 +508,15 @@ extension Strings {
         supportPrivacy: "會把你的電子郵件、這裡填寫的內容和本機的一個隨機 ID 傳送到開發者的支援伺服器。不包含任何工作階段資料。",
         supportChecksReplies: "送出工單後，CacheCue 會每隔幾分鐘向伺服器詢問是否有回覆（只傳送那個隨機 ID），直到工單全部關閉。",
         supportNewReply: "支援有新回覆",
-        buyCoffee: "請我喝杯咖啡")
+        buyCoffee: "請我喝杯咖啡",
+        connectTitle: "尚未連接 Claude Code",
+        connectHint: "CacheCue 只顯示 Claude Code 送來的資料。先完成下面的連接，再在 Claude Code 裡傳一則訊息。",
+        desktopSetupTitle: "Claude 桌面 app 尚未連接",
+        desktopSetupWorking: "正在安裝外掛…",
+        desktopSetupDone: "完成。Claude 桌面 app 裡新開的工作階段會顯示在這裡。",
+        desktopSetupNoClaude: "這台 Mac 上找不到 Claude Code。請先安裝 Claude 桌面 app 或 Claude Code。",
+        setupHide: "不再顯示",
+        limitNotReported: "僅 Pro / Max 訂閱提供")
 
     static let ja = Strings(
         fiveHourTitle: "5時間の上限", sevenDayTitle: "7日間の上限", used: "使用済み", noReading: "データなし",
@@ -512,10 +548,10 @@ extension Strings {
         adviceNearFullDetail: "コンテキストは %d%% 使用中。自動圧縮がまもなく、作業の途中でも実行されます。",
         copyCompact: "/compact をコピー",
         copied: "コピーしました",
-        setupTitle: "ターミナルのステータスラインが未設定です",
-        setupButton: "設定",
-        setupDone: "完了。ターミナルのセッションを再起動すると表示されます。",
-        setupReplace: "別のステータスラインが設定されています。置き換えますか? settings.json は先にバックアップされます。",
+        setupTitle: "ターミナルのセッションが未接続です",
+        setupButton: "接続",
+        setupDone: "完了。ターミナルのセッションを再起動すると、ここに表示されます。",
+        setupReplace: "別のステータスラインが設定されています。接続するとそれが置き換えられ、CacheCue はそこに何も表示しません。置き換えますか？settings.json は先にバックアップされます。",
         cancel: "キャンセル",
         setupFailed: "設定に失敗しました: %@",
         guideTitle: "トークン節約ガイド",
@@ -564,7 +600,15 @@ extension Strings {
         supportPrivacy: "メールアドレス、ここに書いた内容、この Mac のランダムな ID を開発者のサポートサーバーに送信します。セッションの情報は含まれません。",
         supportChecksReplies: "チケットを送信すると、すべてのチケットが閉じるまで、CacheCue は数分おきにサーバーへ返信の有無を問い合わせます（送るのはそのランダム ID だけです）。",
         supportNewReply: "サポートから新しい返信",
-        buyCoffee: "コーヒーをおごる")
+        buyCoffee: "コーヒーをおごる",
+        connectTitle: "まだ Claude Code に接続されていません",
+        connectHint: "CacheCue は Claude Code から届いた数値だけを表示します。下の設定を済ませてから、Claude Code でメッセージを送ってください。",
+        desktopSetupTitle: "Claude デスクトップアプリが未接続です",
+        desktopSetupWorking: "プラグインをインストール中…",
+        desktopSetupDone: "完了。Claude デスクトップアプリの新しいセッションがここに表示されます。",
+        desktopSetupNoClaude: "この Mac に Claude Code が見つかりません。先に Claude デスクトップアプリか Claude Code をインストールしてください。",
+        setupHide: "今後表示しない",
+        limitNotReported: "Pro / Max プランのみ提供")
 
     static let ko = Strings(
         fiveHourTitle: "5시간 한도", sevenDayTitle: "7일 한도", used: "사용됨", noReading: "데이터 없음",
@@ -596,10 +640,10 @@ extension Strings {
         adviceNearFullDetail: "컨텍스트가 %d%% 찼습니다. 곧 자동 압축이 작업 중간에라도 실행됩니다.",
         copyCompact: "/compact 복사",
         copied: "복사됨",
-        setupTitle: "터미널 상태 표시줄이 설정되지 않았습니다",
-        setupButton: "설정",
-        setupDone: "완료. 터미널 세션을 다시 시작하면 보입니다.",
-        setupReplace: "다른 상태 표시줄이 설정되어 있습니다. 교체할까요? settings.json을 먼저 백업합니다.",
+        setupTitle: "터미널 세션이 연결되지 않았습니다",
+        setupButton: "연결",
+        setupDone: "완료. 터미널 세션을 다시 시작하면 여기에 표시됩니다.",
+        setupReplace: "다른 상태 표시줄이 설정되어 있습니다. 연결하면 그것이 대체되고, CacheCue는 그 자리에 아무것도 표시하지 않습니다. 대체할까요? settings.json은 먼저 백업됩니다.",
         cancel: "취소",
         setupFailed: "설정 실패: %@",
         guideTitle: "토큰 절약 가이드",
@@ -648,7 +692,15 @@ extension Strings {
         supportPrivacy: "이메일, 여기에 쓴 내용, 이 Mac의 임의 ID를 개발자의 지원 서버로 보냅니다. 세션에 관한 정보는 포함되지 않습니다.",
         supportChecksReplies: "티켓을 보낸 뒤에는 모든 티켓이 닫힐 때까지 CacheCue가 몇 분마다 서버에 답변이 왔는지 묻습니다(그 무작위 ID만 보냅니다).",
         supportNewReply: "지원팀의 새 답변",
-        buyCoffee: "커피 한 잔 사주기")
+        buyCoffee: "커피 한 잔 사주기",
+        connectTitle: "아직 Claude Code에 연결되지 않았습니다",
+        connectHint: "CacheCue는 Claude Code가 보내 주는 수치만 보여 줍니다. 아래 설정을 마친 뒤 Claude Code에서 메시지를 보내세요.",
+        desktopSetupTitle: "Claude 데스크톱 앱이 연결되지 않았습니다",
+        desktopSetupWorking: "플러그인 설치 중…",
+        desktopSetupDone: "완료. Claude 데스크톱 앱의 새 세션이 여기에 표시됩니다.",
+        desktopSetupNoClaude: "이 Mac에서 Claude Code를 찾을 수 없습니다. 먼저 Claude 데스크톱 앱이나 Claude Code를 설치하세요.",
+        setupHide: "다시 표시하지 않기",
+        limitNotReported: "Pro·Max 요금제에서만 제공")
 
     static let de = Strings(
         fiveHourTitle: "5-Stunden-Limit", sevenDayTitle: "7-Tage-Limit", used: "Genutzt", noReading: "Noch kein Wert",
@@ -680,10 +732,10 @@ extension Strings {
         adviceNearFullDetail: "Der Kontext ist zu %d%% voll. Die automatische Komprimierung wählt bald selbst den Zeitpunkt, womöglich mitten in der Aufgabe.",
         copyCompact: "/compact kopieren",
         copied: "Kopiert",
-        setupTitle: "Terminal-Statuszeile ist nicht eingerichtet",
-        setupButton: "Einrichten",
-        setupDone: "Fertig. Starte deine Terminal-Sitzungen neu, um sie zu sehen.",
-        setupReplace: "Es ist bereits eine andere Statuszeile eingerichtet. Ersetzen? settings.json wird vorher gesichert.",
+        setupTitle: "Terminal-Sitzungen sind nicht verbunden",
+        setupButton: "Verbinden",
+        setupDone: "Fertig. Starte deine Terminal-Sitzungen neu, dann erscheinen sie hier.",
+        setupReplace: "Es ist bereits eine andere Statuszeile eingerichtet. Verbinden ersetzt sie, und CacheCue zeigt an ihrer Stelle nichts an. Ersetzen? settings.json wird vorher gesichert.",
         cancel: "Abbrechen",
         setupFailed: "Einrichtung fehlgeschlagen: %@",
         guideTitle: "Leitfaden zum Token-Sparen",
@@ -732,7 +784,15 @@ extension Strings {
         supportPrivacy: "Sendet deine E-Mail-Adresse, deinen Text und eine zufällige ID für diesen Mac an den Support-Server des Entwicklers. Nichts über deine Sitzungen.",
         supportChecksReplies: "Nach dem Absenden eines Tickets fragt CacheCue alle paar Minuten beim Server nach, ob der Support geantwortet hat – nur mit dieser zufälligen ID –, bis deine Tickets geschlossen sind.",
         supportNewReply: "Neue Antwort vom Support",
-        buyCoffee: "Spendier mir einen Kaffee")
+        buyCoffee: "Spendier mir einen Kaffee",
+        connectTitle: "Noch nicht mit Claude Code verbunden",
+        connectHint: "CacheCue zeigt nur, was Claude Code ihm übergibt. Schließe die Einrichtung unten ab und sende dann eine Nachricht in Claude Code.",
+        desktopSetupTitle: "Claude-Desktop-App ist nicht verbunden",
+        desktopSetupWorking: "Plug-in wird installiert …",
+        desktopSetupDone: "Fertig. Neue Sitzungen in der Claude-Desktop-App erscheinen hier.",
+        desktopSetupNoClaude: "Claude Code wurde auf diesem Mac nicht gefunden. Installiere zuerst die Claude-Desktop-App oder Claude Code.",
+        setupHide: "Nicht mehr anzeigen",
+        limitNotReported: "Nur bei Pro- und Max-Abos verfügbar")
 
     static let fr = Strings(
         fiveHourTitle: "Limite 5 heures", sevenDayTitle: "Limite 7 jours", used: "Utilisé", noReading: "Pas encore de mesure",
@@ -764,10 +824,10 @@ extension Strings {
         adviceNearFullDetail: "Le contexte est plein à %d%%. Le compactage automatique choisira bientôt son moment, peut-être en pleine tâche.",
         copyCompact: "Copier /compact",
         copied: "Copié",
-        setupTitle: "La ligne d’état du terminal n’est pas configurée",
-        setupButton: "Configurer",
-        setupDone: "Terminé. Redémarrez vos sessions de terminal pour la voir.",
-        setupReplace: "Une autre ligne d’état est configurée. La remplacer ? settings.json est d’abord sauvegardé.",
+        setupTitle: "Les sessions du terminal ne sont pas connectées",
+        setupButton: "Connecter",
+        setupDone: "Terminé. Relancez vos sessions de terminal et elles apparaîtront ici.",
+        setupReplace: "Une autre ligne d’état est configurée. La connexion la remplace, et CacheCue n’affiche rien à sa place. La remplacer ? settings.json est sauvegardé au préalable.",
         cancel: "Annuler",
         setupFailed: "Échec de la configuration : %@",
         guideTitle: "Guide pour économiser des tokens",
@@ -816,7 +876,15 @@ extension Strings {
         supportPrivacy: "Envoie votre e-mail, ce que vous écrivez ici et un identifiant aléatoire pour ce Mac au serveur d’assistance du développeur. Rien sur vos sessions.",
         supportChecksReplies: "Après l'envoi d'un ticket, CacheCue demande au serveur toutes les quelques minutes si le support a répondu, en n'envoyant que cet identifiant aléatoire, jusqu'à la clôture de vos tickets.",
         supportNewReply: "Nouvelle réponse du support",
-        buyCoffee: "Offrez-moi un café")
+        buyCoffee: "Offrez-moi un café",
+        connectTitle: "Pas encore connecté à Claude Code",
+        connectHint: "CacheCue n’affiche que ce que Claude Code lui transmet. Terminez la configuration ci-dessous, puis envoyez un message dans Claude Code.",
+        desktopSetupTitle: "L’app de bureau Claude n’est pas connectée",
+        desktopSetupWorking: "Installation du plugin…",
+        desktopSetupDone: "Terminé. Les nouvelles sessions de l’app de bureau Claude apparaîtront ici.",
+        desktopSetupNoClaude: "Claude Code est introuvable sur ce Mac. Installez d’abord l’app de bureau Claude ou Claude Code.",
+        setupHide: "Ne plus afficher",
+        limitNotReported: "Fourni uniquement avec Pro et Max")
 
     static let es = Strings(
         fiveHourTitle: "Límite de 5 horas", sevenDayTitle: "Límite de 7 días", used: "Usado", noReading: "Aún sin datos",
@@ -848,10 +916,10 @@ extension Strings {
         adviceNearFullDetail: "El contexto está al %d%%. La compactación automática pronto elegirá su momento, quizá a mitad de tarea.",
         copyCompact: "Copiar /compact",
         copied: "Copiado",
-        setupTitle: "La línea de estado del terminal no está configurada",
-        setupButton: "Configurar",
-        setupDone: "Listo. Reinicia tus sesiones de terminal para verla.",
-        setupReplace: "Hay otra línea de estado configurada. ¿Reemplazarla? Antes se guarda una copia de settings.json.",
+        setupTitle: "Las sesiones de terminal no están conectadas",
+        setupButton: "Conectar",
+        setupDone: "Listo. Reinicia tus sesiones de terminal y aparecerán aquí.",
+        setupReplace: "Hay otra línea de estado configurada. Al conectar se reemplaza, y CacheCue no muestra nada en su lugar. ¿Reemplazarla? Antes se hace una copia de settings.json.",
         cancel: "Cancelar",
         setupFailed: "Error de configuración: %@",
         guideTitle: "Guía para ahorrar tokens",
@@ -900,7 +968,15 @@ extension Strings {
         supportPrivacy: "Envía tu correo, lo que escribas aquí y un ID aleatorio de este Mac al servidor de soporte del desarrollador. Nada sobre tus sesiones.",
         supportChecksReplies: "Tras enviar un ticket, CacheCue pregunta al servidor cada pocos minutos si soporte ha respondido, enviando solo ese ID aleatorio, hasta que tus tickets se cierren.",
         supportNewReply: "Nueva respuesta de soporte",
-        buyCoffee: "Invítame a un café")
+        buyCoffee: "Invítame a un café",
+        connectTitle: "Aún no está conectado a Claude Code",
+        connectHint: "CacheCue solo muestra lo que Claude Code le envía. Completa la configuración de abajo y luego envía un mensaje en Claude Code.",
+        desktopSetupTitle: "La app de escritorio de Claude no está conectada",
+        desktopSetupWorking: "Instalando el plugin…",
+        desktopSetupDone: "Listo. Las sesiones nuevas de la app de escritorio de Claude aparecerán aquí.",
+        desktopSetupNoClaude: "No se encontró Claude Code en este Mac. Instala primero la app de escritorio de Claude o Claude Code.",
+        setupHide: "No volver a mostrar",
+        limitNotReported: "Solo disponible en planes Pro y Max")
 
     static let pt = Strings(
         fiveHourTitle: "Limite de 5 horas", sevenDayTitle: "Limite de 7 dias", used: "Usado", noReading: "Ainda sem dados",
@@ -932,10 +1008,10 @@ extension Strings {
         adviceNearFullDetail: "O contexto está %d%% cheio. A compactação automática logo escolherá o momento, talvez no meio da tarefa.",
         copyCompact: "Copiar /compact",
         copied: "Copiado",
-        setupTitle: "A linha de status do terminal não está configurada",
-        setupButton: "Configurar",
-        setupDone: "Pronto. Reinicie suas sessões de terminal para vê-la.",
-        setupReplace: "Há outra linha de status configurada. Substituir? O settings.json é salvo antes.",
+        setupTitle: "As sessões do terminal não estão conectadas",
+        setupButton: "Conectar",
+        setupDone: "Pronto. Reinicie suas sessões de terminal e elas aparecerão aqui.",
+        setupReplace: "Há outra linha de status configurada. Conectar a substitui, e o CacheCue não mostra nada no lugar. Substituir? Antes é feito um backup do settings.json.",
         cancel: "Cancelar",
         setupFailed: "Falha na configuração: %@",
         guideTitle: "Guia para economizar tokens",
@@ -984,7 +1060,15 @@ extension Strings {
         supportPrivacy: "Envia seu e-mail, o que você escrever aqui e um ID aleatório deste Mac ao servidor de suporte do desenvolvedor. Nada sobre suas sessões.",
         supportChecksReplies: "Depois de enviar um ticket, o CacheCue pergunta ao servidor a cada poucos minutos se o suporte respondeu, enviando apenas esse ID aleatório, até que seus tickets sejam fechados.",
         supportNewReply: "Nova resposta do suporte",
-        buyCoffee: "Pague-me um café")
+        buyCoffee: "Pague-me um café",
+        connectTitle: "Ainda não conectado ao Claude Code",
+        connectHint: "O CacheCue só mostra o que o Claude Code envia. Conclua a configuração abaixo e depois envie uma mensagem no Claude Code.",
+        desktopSetupTitle: "O app de desktop do Claude não está conectado",
+        desktopSetupWorking: "Instalando o plugin…",
+        desktopSetupDone: "Pronto. As novas sessões do app de desktop do Claude aparecerão aqui.",
+        desktopSetupNoClaude: "O Claude Code não foi encontrado neste Mac. Instale primeiro o app de desktop do Claude ou o Claude Code.",
+        setupHide: "Não mostrar novamente",
+        limitNotReported: "Disponível apenas nos planos Pro e Max")
 
     static let it = Strings(
         fiveHourTitle: "Limite 5 ore", sevenDayTitle: "Limite 7 giorni", used: "Usato", noReading: "Nessun dato",
@@ -1016,10 +1100,10 @@ extension Strings {
         adviceNearFullDetail: "Il contesto è pieno al %d%%. La compattazione automatica sceglierà presto il suo momento, magari a metà attività.",
         copyCompact: "Copia /compact",
         copied: "Copiato",
-        setupTitle: "La riga di stato del terminale non è configurata",
-        setupButton: "Configura",
-        setupDone: "Fatto. Riavvia le sessioni del terminale per vederla.",
-        setupReplace: "È configurata un’altra riga di stato. Sostituirla? Prima viene salvata una copia di settings.json.",
+        setupTitle: "Le sessioni del terminale non sono collegate",
+        setupButton: "Collega",
+        setupDone: "Fatto. Riavvia le sessioni del terminale e compariranno qui.",
+        setupReplace: "È configurata un'altra riga di stato. Il collegamento la sostituisce e CacheCue non mostra nulla al suo posto. Sostituirla? Prima viene salvata una copia di settings.json.",
         cancel: "Annulla",
         setupFailed: "Configurazione non riuscita: %@",
         guideTitle: "Guida al risparmio di token",
@@ -1068,7 +1152,15 @@ extension Strings {
         supportPrivacy: "Invia la tua email, ciò che scrivi qui e un ID casuale di questo Mac al server di supporto dello sviluppatore. Nulla sulle tue sessioni.",
         supportChecksReplies: "Dopo l'invio di un ticket, CacheCue chiede al server ogni pochi minuti se il supporto ha risposto, inviando solo quell'ID casuale, finché i tuoi ticket non vengono chiusi.",
         supportNewReply: "Nuova risposta dal supporto",
-        buyCoffee: "Offrimi un caffè")
+        buyCoffee: "Offrimi un caffè",
+        connectTitle: "Non ancora collegato a Claude Code",
+        connectHint: "CacheCue mostra solo ciò che Claude Code gli passa. Completa la configurazione qui sotto, poi invia un messaggio in Claude Code.",
+        desktopSetupTitle: "L'app desktop di Claude non è collegata",
+        desktopSetupWorking: "Installazione del plugin…",
+        desktopSetupDone: "Fatto. Le nuove sessioni dell'app desktop di Claude compariranno qui.",
+        desktopSetupNoClaude: "Claude Code non è stato trovato su questo Mac. Installa prima l'app desktop di Claude o Claude Code.",
+        setupHide: "Non mostrare più",
+        limitNotReported: "Disponibile solo con i piani Pro e Max")
 
     static let nl = Strings(
         fiveHourTitle: "5-uurslimiet", sevenDayTitle: "7-dagenlimiet", used: "Gebruikt", noReading: "Nog geen meting",
@@ -1100,10 +1192,10 @@ extension Strings {
         adviceNearFullDetail: "De context is %d%% vol. Automatisch compacten kiest straks zelf een moment, misschien midden in een taak.",
         copyCompact: "Kopieer /compact",
         copied: "Gekopieerd",
-        setupTitle: "Statusregel in de terminal is niet ingesteld",
-        setupButton: "Instellen",
-        setupDone: "Klaar. Herstart je terminalsessies om hem te zien.",
-        setupReplace: "Er is al een andere statusregel ingesteld. Vervangen? Er wordt eerst een back-up van settings.json gemaakt.",
+        setupTitle: "Terminalsessies zijn niet verbonden",
+        setupButton: "Verbinden",
+        setupDone: "Klaar. Herstart je terminalsessies en ze verschijnen hier.",
+        setupReplace: "Er is al een andere statusregel ingesteld. Verbinden vervangt die, en CacheCue toont er niets voor in de plaats. Vervangen? Er wordt eerst een back-up van settings.json gemaakt.",
         cancel: "Annuleer",
         setupFailed: "Instellen mislukt: %@",
         guideTitle: "Gids voor tokenbesparing",
@@ -1152,7 +1244,15 @@ extension Strings {
         supportPrivacy: "Stuurt je e-mailadres, wat je hier schrijft en een willekeurige ID voor deze Mac naar de supportserver van de ontwikkelaar. Niets over je sessies.",
         supportChecksReplies: "Nadat je een ticket hebt verstuurd, vraagt CacheCue om de paar minuten aan de server of support heeft geantwoord, met alleen die willekeurige ID, totdat je tickets gesloten zijn.",
         supportNewReply: "Nieuw antwoord van support",
-        buyCoffee: "Trakteer me op een koffie")
+        buyCoffee: "Trakteer me op een koffie",
+        connectTitle: "Nog niet verbonden met Claude Code",
+        connectHint: "CacheCue toont alleen wat Claude Code doorgeeft. Rond de configuratie hieronder af en stuur dan een bericht in Claude Code.",
+        desktopSetupTitle: "De Claude-desktopapp is niet verbonden",
+        desktopSetupWorking: "Plug-in installeren…",
+        desktopSetupDone: "Klaar. Nieuwe sessies in de Claude-desktopapp verschijnen hier.",
+        desktopSetupNoClaude: "Claude Code is niet gevonden op deze Mac. Installeer eerst de Claude-desktopapp of Claude Code.",
+        setupHide: "Niet meer tonen",
+        limitNotReported: "Alleen beschikbaar bij Pro en Max")
 
     static let sv = Strings(
         fiveHourTitle: "5-timmarsgräns", sevenDayTitle: "7-dagarsgräns", used: "Använt", noReading: "Inget värde än",
@@ -1184,10 +1284,10 @@ extension Strings {
         adviceNearFullDetail: "Kontexten är %d%% full. Automatisk komprimering väljer snart sin egen tidpunkt, kanske mitt i en uppgift.",
         copyCompact: "Kopiera /compact",
         copied: "Kopierat",
-        setupTitle: "Terminalens statusrad är inte inställd",
-        setupButton: "Ställ in",
-        setupDone: "Klart. Starta om dina terminalsessioner för att se den.",
-        setupReplace: "En annan statusrad är redan inställd. Ersätta den? settings.json säkerhetskopieras först.",
+        setupTitle: "Terminalsessioner är inte anslutna",
+        setupButton: "Anslut",
+        setupDone: "Klart. Starta om dina terminalsessioner så visas de här.",
+        setupReplace: "En annan statusrad är redan konfigurerad. Anslutningen ersätter den, och CacheCue visar inget i dess ställe. Ersätta den? settings.json säkerhetskopieras först.",
         cancel: "Avbryt",
         setupFailed: "Inställningen misslyckades: %@",
         guideTitle: "Guide för att spara tokens",
@@ -1236,7 +1336,15 @@ extension Strings {
         supportPrivacy: "Skickar din e-postadress, det du skriver här och ett slumpmässigt ID för den här Macen till utvecklarens supportserver. Inget om dina sessioner.",
         supportChecksReplies: "När du har skickat ett ärende frågar CacheCue servern med några minuters mellanrum om supporten har svarat, och skickar bara det slumpmässiga ID:t, tills dina ärenden är stängda.",
         supportNewReply: "Nytt svar från supporten",
-        buyCoffee: "Bjud mig på en kaffe")
+        buyCoffee: "Bjud mig på en kaffe",
+        connectTitle: "Inte ansluten till Claude Code ännu",
+        connectHint: "CacheCue visar bara det som Claude Code skickar. Slutför inställningen nedan och skicka sedan ett meddelande i Claude Code.",
+        desktopSetupTitle: "Claudes skrivbordsapp är inte ansluten",
+        desktopSetupWorking: "Installerar pluginet…",
+        desktopSetupDone: "Klart. Nya sessioner i Claudes skrivbordsapp visas här.",
+        desktopSetupNoClaude: "Claude Code hittades inte på den här Macen. Installera först Claudes skrivbordsapp eller Claude Code.",
+        setupHide: "Visa inte igen",
+        limitNotReported: "Finns bara i Pro- och Max-planer")
 
     static let pl = Strings(
         fiveHourTitle: "Limit 5-godzinny", sevenDayTitle: "Limit 7-dniowy", used: "Użyto", noReading: "Brak odczytu",
@@ -1268,10 +1376,10 @@ extension Strings {
         adviceNearFullDetail: "Kontekst jest zapełniony w %d%%. Automatyczne kompaktowanie wkrótce samo wybierze moment, być może w środku zadania.",
         copyCompact: "Kopiuj /compact",
         copied: "Skopiowano",
-        setupTitle: "Pasek stanu terminala nie jest skonfigurowany",
-        setupButton: "Skonfiguruj",
-        setupDone: "Gotowe. Uruchom ponownie sesje terminala, aby go zobaczyć.",
-        setupReplace: "Skonfigurowano inny pasek stanu. Zastąpić? Najpierw powstanie kopia settings.json.",
+        setupTitle: "Sesje terminala nie są połączone",
+        setupButton: "Połącz",
+        setupDone: "Gotowe. Uruchom ponownie sesje terminala, a pojawią się tutaj.",
+        setupReplace: "Skonfigurowano już inny pasek stanu. Połączenie go zastąpi, a CacheCue nie pokaże nic w jego miejscu. Zastąpić? Najpierw powstanie kopia settings.json.",
         cancel: "Anuluj",
         setupFailed: "Konfiguracja nie powiodła się: %@",
         guideTitle: "Poradnik oszczędzania tokenów",
@@ -1320,7 +1428,15 @@ extension Strings {
         supportPrivacy: "Wysyła Twój e-mail, to, co tu napiszesz, i losowy identyfikator tego Maca na serwer wsparcia dewelopera. Nic o Twoich sesjach.",
         supportChecksReplies: "Po wysłaniu zgłoszenia CacheCue co kilka minut pyta serwer, czy wsparcie odpowiedziało, wysyłając tylko ten losowy identyfikator, dopóki zgłoszenia nie zostaną zamknięte.",
         supportNewReply: "Nowa odpowiedź od wsparcia",
-        buyCoffee: "Postaw mi kawę")
+        buyCoffee: "Postaw mi kawę",
+        connectTitle: "Brak połączenia z Claude Code",
+        connectHint: "CacheCue pokazuje tylko to, co przekazuje mu Claude Code. Dokończ konfigurację poniżej, a potem wyślij wiadomość w Claude Code.",
+        desktopSetupTitle: "Aplikacja Claude na komputer nie jest połączona",
+        desktopSetupWorking: "Instalowanie wtyczki…",
+        desktopSetupDone: "Gotowe. Nowe sesje w aplikacji Claude na komputer pojawią się tutaj.",
+        desktopSetupNoClaude: "Nie znaleziono Claude Code na tym Macu. Najpierw zainstaluj aplikację Claude na komputer lub Claude Code.",
+        setupHide: "Nie pokazuj ponownie",
+        limitNotReported: "Dostępne tylko w planach Pro i Max")
 
     static let ru = Strings(
         fiveHourTitle: "Лимит на 5 часов", sevenDayTitle: "Лимит на 7 дней", used: "Использовано", noReading: "Данных пока нет",
@@ -1352,10 +1468,10 @@ extension Strings {
         adviceNearFullDetail: "Контекст заполнен на %d%%. Автосжатие скоро само выберет момент, возможно посреди задачи.",
         copyCompact: "Скопировать /compact",
         copied: "Скопировано",
-        setupTitle: "Строка состояния терминала не настроена",
-        setupButton: "Настроить",
-        setupDone: "Готово. Перезапустите сессии в терминале, чтобы увидеть её.",
-        setupReplace: "Уже настроена другая строка состояния. Заменить? Сначала будет сохранена копия settings.json.",
+        setupTitle: "Сеансы терминала не подключены",
+        setupButton: "Подключить",
+        setupDone: "Готово. Перезапустите сеансы терминала, и они появятся здесь.",
+        setupReplace: "Уже настроена другая строка состояния. Подключение заменит её, а CacheCue ничего не покажет на её месте. Заменить? Сначала будет сохранена копия settings.json.",
         cancel: "Отмена",
         setupFailed: "Не удалось настроить: %@",
         guideTitle: "Как экономить токены",
@@ -1404,7 +1520,15 @@ extension Strings {
         supportPrivacy: "Отправляет вашу почту, написанный здесь текст и случайный идентификатор этого Mac на сервер поддержки разработчика. Ничего о ваших сессиях.",
         supportChecksReplies: "После отправки обращения CacheCue раз в несколько минут спрашивает сервер, ответила ли поддержка, отправляя только этот случайный ID, пока обращения не будут закрыты.",
         supportNewReply: "Новый ответ поддержки",
-        buyCoffee: "Купите мне кофе")
+        buyCoffee: "Купите мне кофе",
+        connectTitle: "Ещё нет связи с Claude Code",
+        connectHint: "CacheCue показывает только то, что передаёт ему Claude Code. Завершите настройку ниже, затем отправьте сообщение в Claude Code.",
+        desktopSetupTitle: "Настольное приложение Claude не подключено",
+        desktopSetupWorking: "Установка плагина…",
+        desktopSetupDone: "Готово. Новые сеансы в настольном приложении Claude появятся здесь.",
+        desktopSetupNoClaude: "Claude Code не найден на этом Mac. Сначала установите настольное приложение Claude или Claude Code.",
+        setupHide: "Больше не показывать",
+        limitNotReported: "Только для планов Pro и Max")
 
     static let tr = Strings(
         fiveHourTitle: "5 Saatlik Limit", sevenDayTitle: "7 Günlük Limit", used: "Kullanıldı", noReading: "Henüz veri yok",
@@ -1436,10 +1560,10 @@ extension Strings {
         adviceNearFullDetail: "Bağlam %d%% dolu. Otomatik sıkıştırma yakında kendi anını seçecek, belki görevin ortasında.",
         copyCompact: "/compact kopyala",
         copied: "Kopyalandı",
-        setupTitle: "Terminal durum satırı ayarlanmamış",
-        setupButton: "Ayarla",
-        setupDone: "Tamam. Görmek için terminal oturumlarını yeniden başlat.",
-        setupReplace: "Başka bir durum satırı ayarlı. Değiştirilsin mi? Önce settings.json yedeklenir.",
+        setupTitle: "Terminal oturumları bağlı değil",
+        setupButton: "Bağla",
+        setupDone: "Tamam. Terminal oturumlarınızı yeniden başlatın, burada görünecekler.",
+        setupReplace: "Başka bir durum satırı ayarlanmış. Bağlamak onun yerini alır ve CacheCue yerinde hiçbir şey göstermez. Değiştirilsin mi? Önce settings.json yedeklenir.",
         cancel: "Vazgeç",
         setupFailed: "Ayarlama başarısız: %@",
         guideTitle: "Token tasarrufu rehberi",
@@ -1488,7 +1612,15 @@ extension Strings {
         supportPrivacy: "E-postanızı, buraya yazdıklarınızı ve bu Mac için rastgele bir kimliği geliştiricinin destek sunucusuna gönderir. Oturumlarınızla ilgili hiçbir şey gönderilmez.",
         supportChecksReplies: "Bir destek talebi gönderdikten sonra CacheCue, talepleriniz kapanana kadar birkaç dakikada bir sunucuya desteğin yanıt verip vermediğini sorar; yalnızca o rastgele kimliği gönderir.",
         supportNewReply: "Destekten yeni yanıt",
-        buyCoffee: "Bana bir kahve ısmarla")
+        buyCoffee: "Bana bir kahve ısmarla",
+        connectTitle: "Henüz Claude Code'a bağlı değil",
+        connectHint: "CacheCue yalnızca Claude Code'un ona ilettiklerini gösterir. Aşağıdaki kurulumu tamamlayın, ardından Claude Code'da bir mesaj gönderin.",
+        desktopSetupTitle: "Claude masaüstü uygulaması bağlı değil",
+        desktopSetupWorking: "Eklenti yükleniyor…",
+        desktopSetupDone: "Tamam. Claude masaüstü uygulamasındaki yeni oturumlar burada görünecek.",
+        desktopSetupNoClaude: "Bu Mac'te Claude Code bulunamadı. Önce Claude masaüstü uygulamasını veya Claude Code'u yükleyin.",
+        setupHide: "Bir daha gösterme",
+        limitNotReported: "Yalnızca Pro ve Max planlarında sunulur")
 
     static let id = Strings(
         fiveHourTitle: "Batas 5 Jam", sevenDayTitle: "Batas 7 Hari", used: "Terpakai", noReading: "Belum ada data",
@@ -1520,10 +1652,10 @@ extension Strings {
         adviceNearFullDetail: "Konteks terisi %d%%. Pemadatan otomatis segera memilih waktunya sendiri, mungkin di tengah tugas.",
         copyCompact: "Salin /compact",
         copied: "Tersalin",
-        setupTitle: "Baris status terminal belum disiapkan",
-        setupButton: "Siapkan",
-        setupDone: "Selesai. Mulai ulang sesi terminal untuk melihatnya.",
-        setupReplace: "Baris status lain sudah dikonfigurasi. Ganti? settings.json dicadangkan lebih dulu.",
+        setupTitle: "Sesi terminal belum terhubung",
+        setupButton: "Hubungkan",
+        setupDone: "Selesai. Mulai ulang sesi terminal Anda dan sesi itu akan muncul di sini.",
+        setupReplace: "Status line lain sudah dikonfigurasi. Menghubungkan akan menggantinya, dan CacheCue tidak menampilkan apa pun di tempatnya. Ganti? settings.json dicadangkan lebih dulu.",
         cancel: "Batal",
         setupFailed: "Penyiapan gagal: %@",
         guideTitle: "Panduan hemat token",
@@ -1572,7 +1704,15 @@ extension Strings {
         supportPrivacy: "Mengirim email Anda, yang Anda tulis di sini, dan ID acak untuk Mac ini ke server dukungan pengembang. Tidak ada data sesi Anda.",
         supportChecksReplies: "Setelah Anda mengirim tiket, CacheCue bertanya ke server setiap beberapa menit apakah dukungan sudah membalas, hanya dengan mengirim ID acak itu, sampai tiket Anda ditutup.",
         supportNewReply: "Balasan baru dari dukungan",
-        buyCoffee: "Belikan saya kopi")
+        buyCoffee: "Belikan saya kopi",
+        connectTitle: "Belum terhubung ke Claude Code",
+        connectHint: "CacheCue hanya menampilkan apa yang dikirim Claude Code. Selesaikan penyiapan di bawah, lalu kirim pesan di Claude Code.",
+        desktopSetupTitle: "Aplikasi desktop Claude belum terhubung",
+        desktopSetupWorking: "Memasang plugin…",
+        desktopSetupDone: "Selesai. Sesi baru di aplikasi desktop Claude akan muncul di sini.",
+        desktopSetupNoClaude: "Claude Code tidak ditemukan di Mac ini. Pasang dulu aplikasi desktop Claude atau Claude Code.",
+        setupHide: "Jangan tampilkan lagi",
+        limitNotReported: "Hanya tersedia di paket Pro dan Max")
 
     static let vi = Strings(
         fiveHourTitle: "Giới hạn 5 giờ", sevenDayTitle: "Giới hạn 7 ngày", used: "Đã dùng", noReading: "Chưa có số liệu",
@@ -1604,10 +1744,10 @@ extension Strings {
         adviceNearFullDetail: "Ngữ cảnh đã đầy %d%%. Tự động nén sắp tự chọn thời điểm, có thể ngay giữa việc.",
         copyCompact: "Sao chép /compact",
         copied: "Đã sao chép",
-        setupTitle: "Chưa thiết lập dòng trạng thái của terminal",
-        setupButton: "Thiết lập",
-        setupDone: "Xong. Khởi động lại các phiên terminal để thấy.",
-        setupReplace: "Đã có dòng trạng thái khác. Thay thế? settings.json sẽ được sao lưu trước.",
+        setupTitle: "Các phiên terminal chưa được kết nối",
+        setupButton: "Kết nối",
+        setupDone: "Xong. Khởi động lại các phiên terminal và chúng sẽ hiện ở đây.",
+        setupReplace: "Đã có một status line khác được cấu hình. Kết nối sẽ thay thế nó, và CacheCue không hiển thị gì ở vị trí đó. Thay thế chứ? settings.json sẽ được sao lưu trước.",
         cancel: "Hủy",
         setupFailed: "Thiết lập thất bại: %@",
         guideTitle: "Hướng dẫn tiết kiệm token",
@@ -1656,7 +1796,15 @@ extension Strings {
         supportPrivacy: "Gửi email của bạn, nội dung bạn viết ở đây và một ID ngẫu nhiên của máy Mac này tới máy chủ hỗ trợ của nhà phát triển. Không có gì về các phiên của bạn.",
         supportChecksReplies: "Sau khi bạn gửi yêu cầu, CacheCue sẽ hỏi máy chủ vài phút một lần xem bộ phận hỗ trợ đã trả lời chưa, chỉ gửi ID ngẫu nhiên đó, cho đến khi các yêu cầu của bạn được đóng.",
         supportNewReply: "Phản hồi mới từ bộ phận hỗ trợ",
-        buyCoffee: "Mời tôi một ly cà phê")
+        buyCoffee: "Mời tôi một ly cà phê",
+        connectTitle: "Chưa kết nối với Claude Code",
+        connectHint: "CacheCue chỉ hiển thị những gì Claude Code gửi cho nó. Hãy hoàn tất phần thiết lập bên dưới, rồi gửi một tin nhắn trong Claude Code.",
+        desktopSetupTitle: "Ứng dụng Claude trên máy tính chưa được kết nối",
+        desktopSetupWorking: "Đang cài plugin…",
+        desktopSetupDone: "Xong. Các phiên mới trong ứng dụng Claude trên máy tính sẽ hiện ở đây.",
+        desktopSetupNoClaude: "Không tìm thấy Claude Code trên máy Mac này. Hãy cài ứng dụng Claude trên máy tính hoặc Claude Code trước.",
+        setupHide: "Không hiển thị lại",
+        limitNotReported: "Chỉ có ở gói Pro và Max")
 
     static let th = Strings(
         fiveHourTitle: "โควตา 5 ชั่วโมง", sevenDayTitle: "โควตา 7 วัน", used: "ใช้ไป", noReading: "ยังไม่มีข้อมูล",
@@ -1688,10 +1836,10 @@ extension Strings {
         adviceNearFullDetail: "บริบทเต็มแล้ว %d%% การบีบอัดอัตโนมัติจะเลือกจังหวะเองในไม่ช้า อาจเป็นกลางงาน",
         copyCompact: "คัดลอก /compact",
         copied: "คัดลอกแล้ว",
-        setupTitle: "ยังไม่ได้ตั้งค่าบรรทัดสถานะของเทอร์มินัล",
-        setupButton: "ตั้งค่า",
-        setupDone: "เสร็จแล้ว เริ่มเซสชันเทอร์มินัลใหม่เพื่อดูผล",
-        setupReplace: "มีการตั้งค่าบรรทัดสถานะอื่นอยู่ ต้องการแทนที่ไหม? จะสำรอง settings.json ไว้ก่อน",
+        setupTitle: "เซสชันในเทอร์มินัลยังไม่ได้เชื่อมต่อ",
+        setupButton: "เชื่อมต่อ",
+        setupDone: "เสร็จแล้ว เริ่มเซสชันในเทอร์มินัลใหม่ แล้วเซสชันจะแสดงที่นี่",
+        setupReplace: "มีการตั้งค่า status line อื่นอยู่แล้ว การเชื่อมต่อจะแทนที่ของเดิม และ CacheCue จะไม่แสดงอะไรในตำแหน่งนั้น ต้องการแทนที่หรือไม่ ระบบจะสำรอง settings.json ไว้ก่อน",
         cancel: "ยกเลิก",
         setupFailed: "ตั้งค่าไม่สำเร็จ: %@",
         guideTitle: "คู่มือประหยัดโทเค็น",
@@ -1740,7 +1888,15 @@ extension Strings {
         supportPrivacy: "ส่งอีเมลของคุณ สิ่งที่คุณเขียนที่นี่ และ ID แบบสุ่มของ Mac เครื่องนี้ไปยังเซิร์ฟเวอร์ซัพพอร์ตของผู้พัฒนา ไม่มีข้อมูลเซสชันของคุณ",
         supportChecksReplies: "หลังจากส่งตั๋วแล้ว CacheCue จะถามเซิร์ฟเวอร์ทุกไม่กี่นาทีว่าฝ่ายสนับสนุนตอบแล้วหรือยัง โดยส่งเฉพาะ ID แบบสุ่มนั้น จนกว่าตั๋วของคุณจะถูกปิด",
         supportNewReply: "มีคำตอบใหม่จากฝ่ายสนับสนุน",
-        buyCoffee: "เลี้ยงกาแฟผม")
+        buyCoffee: "เลี้ยงกาแฟผม",
+        connectTitle: "ยังไม่ได้เชื่อมต่อกับ Claude Code",
+        connectHint: "CacheCue แสดงเฉพาะข้อมูลที่ Claude Code ส่งมาให้ ตั้งค่าด้านล่างให้เสร็จ แล้วส่งข้อความใน Claude Code",
+        desktopSetupTitle: "ยังไม่ได้เชื่อมต่อแอป Claude บนเดสก์ท็อป",
+        desktopSetupWorking: "กำลังติดตั้งปลั๊กอิน…",
+        desktopSetupDone: "เสร็จแล้ว เซสชันใหม่ในแอป Claude บนเดสก์ท็อปจะแสดงที่นี่",
+        desktopSetupNoClaude: "ไม่พบ Claude Code บน Mac เครื่องนี้ โปรดติดตั้งแอป Claude บนเดสก์ท็อปหรือ Claude Code ก่อน",
+        setupHide: "ไม่ต้องแสดงอีก",
+        limitNotReported: "มีเฉพาะแผน Pro และ Max")
 
     static let hi = Strings(
         fiveHourTitle: "5 घंटे की सीमा", sevenDayTitle: "7 दिन की सीमा", used: "उपयोग", noReading: "अभी कोई डेटा नहीं",
@@ -1772,10 +1928,10 @@ extension Strings {
         adviceNearFullDetail: "संदर्भ %d%% भर चुका है। ऑटो-कॉम्पैक्ट जल्द ही अपना समय खुद चुनेगा, शायद काम के बीच में।",
         copyCompact: "/compact कॉपी करें",
         copied: "कॉपी हो गया",
-        setupTitle: "टर्मिनल स्टेटस लाइन सेट नहीं है",
-        setupButton: "सेट करें",
-        setupDone: "हो गया। देखने के लिए टर्मिनल सत्र फिर से शुरू करें।",
-        setupReplace: "कोई और स्टेटस लाइन सेट है। बदलें? पहले settings.json का बैकअप लिया जाएगा।",
+        setupTitle: "टर्मिनल सत्र जुड़े नहीं हैं",
+        setupButton: "जोड़ें",
+        setupDone: "हो गया। अपने टर्मिनल सत्र फिर से शुरू करें, वे यहाँ दिखेंगे।",
+        setupReplace: "एक और स्टेटस लाइन पहले से सेट है। जोड़ने पर वह बदल जाएगी, और CacheCue उसकी जगह कुछ नहीं दिखाएगा। बदलें? पहले settings.json का बैकअप लिया जाएगा।",
         cancel: "रद्द करें",
         setupFailed: "सेटअप विफल: %@",
         guideTitle: "टोकन बचाने की गाइड",
@@ -1824,7 +1980,15 @@ extension Strings {
         supportPrivacy: "आपका ईमेल, यहाँ लिखी बात और इस Mac की एक रैंडम ID डेवलपर के सपोर्ट सर्वर को भेजता है। आपके सत्रों के बारे में कुछ नहीं।",
         supportChecksReplies: "टिकट भेजने के बाद, CacheCue हर कुछ मिनट में सर्वर से पूछता है कि सहायता ने उत्तर दिया या नहीं — केवल वही रैंडम ID भेजकर — जब तक आपके टिकट बंद नहीं हो जाते।",
         supportNewReply: "सहायता से नया उत्तर",
-        buyCoffee: "मुझे एक कॉफ़ी पिलाएँ")
+        buyCoffee: "मुझे एक कॉफ़ी पिलाएँ",
+        connectTitle: "अभी Claude Code से जुड़ा नहीं है",
+        connectHint: "CacheCue केवल वही दिखाता है जो Claude Code उसे भेजता है। नीचे का सेटअप पूरा करें, फिर Claude Code में एक संदेश भेजें।",
+        desktopSetupTitle: "Claude डेस्कटॉप ऐप जुड़ा नहीं है",
+        desktopSetupWorking: "प्लगइन इंस्टॉल हो रहा है…",
+        desktopSetupDone: "हो गया। Claude डेस्कटॉप ऐप के नए सत्र यहाँ दिखेंगे।",
+        desktopSetupNoClaude: "इस Mac पर Claude Code नहीं मिला। पहले Claude डेस्कटॉप ऐप या Claude Code इंस्टॉल करें।",
+        setupHide: "दोबारा न दिखाएँ",
+        limitNotReported: "केवल Pro और Max प्लान में उपलब्ध")
 
     static let ar = Strings(
         fiveHourTitle: "حد 5 ساعات", sevenDayTitle: "حد 7 أيام", used: "المستخدم", noReading: "لا توجد قراءة بعد",
@@ -1856,10 +2020,10 @@ extension Strings {
         adviceNearFullDetail: "السياق ممتلئ بنسبة %d%%. الضغط التلقائي سيختار وقته قريبًا، وربما في منتصف المهمة.",
         copyCompact: "نسخ /compact",
         copied: "تم النسخ",
-        setupTitle: "شريط حالة الطرفية غير مُعدّ",
-        setupButton: "إعداد",
-        setupDone: "تم. أعد تشغيل جلسات الطرفية لرؤيته.",
-        setupReplace: "يوجد شريط حالة آخر مُعدّ. هل تستبدله؟ تُحفظ نسخة من settings.json أولًا.",
+        setupTitle: "جلسات الطرفية غير متصلة",
+        setupButton: "اتصال",
+        setupDone: "تم. أعد تشغيل جلسات الطرفية وستظهر هنا.",
+        setupReplace: "هناك سطر حالة آخر مُعدّ. الاتصال يستبدله، ولن يعرض CacheCue شيئًا مكانه. هل تريد استبداله؟ تُحفظ نسخة احتياطية من settings.json أولًا.",
         cancel: "إلغاء",
         setupFailed: "فشل الإعداد: %@",
         guideTitle: "دليل توفير التوكنات",
@@ -1908,5 +2072,13 @@ extension Strings {
         supportPrivacy: "يرسل بريدك الإلكتروني وما تكتبه هنا ومعرّفًا عشوائيًا لهذا الـ Mac إلى خادم الدعم لدى المطوّر. لا شيء عن جلساتك.",
         supportChecksReplies: "بعد إرسال تذكرة، يسأل CacheCue الخادم كل بضع دقائق عمّا إذا كان الدعم قد ردّ، ويرسل ذلك المعرّف العشوائي فقط، إلى أن تُغلق تذاكرك.",
         supportNewReply: "رد جديد من الدعم",
-        buyCoffee: "اشترِ لي قهوة")
+        buyCoffee: "اشترِ لي قهوة",
+        connectTitle: "غير متصل بـ Claude Code بعد",
+        connectHint: "يعرض CacheCue فقط ما يرسله إليه Claude Code. أكمل الإعداد أدناه، ثم أرسل رسالة في Claude Code.",
+        desktopSetupTitle: "تطبيق Claude لسطح المكتب غير متصل",
+        desktopSetupWorking: "جارٍ تثبيت الإضافة…",
+        desktopSetupDone: "تم. ستظهر هنا الجلسات الجديدة في تطبيق Claude لسطح المكتب.",
+        desktopSetupNoClaude: "لم يُعثر على Claude Code على هذا الـ Mac. ثبّت أولاً تطبيق Claude لسطح المكتب أو Claude Code.",
+        setupHide: "عدم الإظهار مرة أخرى",
+        limitNotReported: "متاح فقط في خطتي Pro وMax")
 }

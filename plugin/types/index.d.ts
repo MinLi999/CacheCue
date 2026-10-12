@@ -28,6 +28,6 @@ export type Figures = {
 
 declare module 'claude-code' {
   interface PluginState {
-    cachecue: { cache: CacheStats; figures: Figures | null; now: number }
+    cachecue: { cache: CacheStats; figures: Figures | null }
   }
 }

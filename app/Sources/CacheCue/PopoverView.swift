@@ -217,7 +217,9 @@ struct UpdateSwitch: View {
 /// Shown until the terminal status line points at this app: one press sets it up.
 struct SetupCard: View {
     let strings: Strings
-    @State private var state = StatusLineSetup.state()
+    @Binding var state: StatusLineSetup.State
+    /// Puts the card away for good: not everyone uses Claude Code in a terminal.
+    let hide: () -> Void
     @State private var isConfirming = false
     @State private var message: String?
 
@@ -230,6 +232,7 @@ struct SetupCard: View {
                         Text(message ?? (isConfirming ? strings.setupReplace : strings.setupTitle))
                             .font(.rounded(11, .semibold)).fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
+                        if state != .ours { HideButton(strings: strings, action: hide) }
                     }
                     if state != .ours {
                         HStack(spacing: 8) {
@@ -267,12 +270,92 @@ struct SetupCard: View {
     }
 }
 
+/// The small cross that puts a setup card away.
+struct HideButton: View {
+    let strings: Strings
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).foregroundColor(.secondary)
+                .padding(4).background(Circle().fill(Color.secondary.opacity(0.12)))
+        }
+        .buttonStyle(.plain)
+        .help(strings.setupHide)
+        .accessibilityLabel(strings.setupHide)
+    }
+}
+
+/// Shown until the Claude desktop app has the plugin that feeds this app: one press installs
+/// the copy that travels inside the app, with the Claude Code already on this Mac.
+struct DesktopSetupCard: View {
+    let strings: Strings
+    @Binding var isInstalled: Bool
+    /// The plugin inside this build; nil in the off-screen render.
+    let bundled: URL?
+    /// The Claude Code that will do the installing; nil when this Mac has none.
+    let claude: URL?
+    let hide: () -> Void
+    @State private var isWorking = false
+    @State private var message: String?
+
+    var body: some View {
+        if !isInstalled || message != nil {
+            Card {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "macwindow").font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
+                        Text(message ?? (isWorking ? strings.desktopSetupWorking : claude == nil ? strings.desktopSetupNoClaude : strings.desktopSetupTitle))
+                            .font(.rounded(11, .semibold)).fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        if !isInstalled && !isWorking { HideButton(strings: strings, action: hide) }
+                    }
+                    if !isInstalled && claude != nil && !isWorking {
+                        HStack(spacing: 8) {
+                            Spacer()
+                            Button(strings.setupButton, action: install)
+                                .buttonStyle(.plain).font(.rounded(11, .bold)).foregroundColor(.brandAccent)
+                                .padding(.horizontal, 10).padding(.vertical, 4)
+                                .background(Capsule().fill(Color.brandAccent.opacity(0.12)))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func install() {
+        guard let claude else { return }
+        isWorking = true
+        message = nil
+        let (bundled, home) = (bundled, FileManager.default.homeDirectoryForCurrentUser)
+        // Claude Code takes a moment; the popover stays live meanwhile.
+        Task.detached {
+            let failure: String?
+            do {
+                try PluginSetup.install(bundled: bundled, home: home, claude: claude)
+                failure = nil
+            } catch {
+                failure = error.localizedDescription
+            }
+            await MainActor.run {
+                isWorking = false
+                isInstalled = PluginSetup.isInstalled(home: home)
+                message = failure.map { String(format: strings.setupFailed, $0) }
+                    ?? (isInstalled ? strings.desktopSetupDone : String(format: strings.setupFailed, "?"))
+            }
+        }
+    }
+}
+
 /// One rate-limit window: how much is used and when it resets.
 struct LimitCard: View {
     let title: String
     let symbol: String
     let limit: LimitView?
     let strings: Strings
+    /// A session is reporting, yet no limit came with it: the account is not told one.
+    var isNotReported = false
 
     var body: some View {
         Card {
@@ -282,7 +365,8 @@ struct LimitCard: View {
                     HStack(alignment: .firstTextBaseline) {
                         Text(title).font(.system(.subheadline, design: .rounded)).fontWeight(.bold)
                         Spacer()
-                        Text(limit?.resetsIn.map { strings.reset(in: $0) } ?? strings.noReading)
+                        Text(limit?.resetsIn.map { strings.reset(in: $0) }
+                            ?? (limit == nil && isNotReported ? strings.limitNotReported : strings.noReading))
                             .font(.system(.caption2, design: .rounded))
                             .foregroundColor(.secondary)
                     }
@@ -625,11 +709,34 @@ struct PopoverView: View {
     @State private var launchesAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
+    /// The off-screen render of a Mac where nothing is set up yet.
+    var previewsSetup = false
+    @State private var terminalSetup = StatusLineSetup.state()
+    @State private var hasDesktopPlugin = PluginSetup.isInstalled(home: FileManager.default.homeDirectoryForCurrentUser)
+    @AppStorage("hideTerminalSetup") private var hidesTerminalSetup = false
+    @AppStorage("hideDesktopSetup") private var hidesDesktopSetup = false
+
+    /// Neither moves while the app runs; the popover redraws every second.
+    private static let bundledPlugin = PluginSetup.bundled(resources: Bundle.main.resourceURL)
+    @State private var claude = PluginSetup.claudeExecutable(home: FileManager.default.homeDirectoryForCurrentUser)
+    private var bundledPlugin: URL? { Self.bundledPlugin }
+    private var showsTerminalSetup: Bool { previewsSetup || (!isPreview && !hidesTerminalSetup) }
+    /// A build that carries no plugin has nothing to offer here.
+    private var showsDesktopSetup: Bool { previewsSetup || (!isPreview && !hidesDesktopSetup && bundledPlugin != nil) }
+    /// Nothing feeds the app yet, and the cards that would fix it are still on screen.
+    private var isUnconnected: Bool {
+        if previewsSetup { return true }
+        return terminalSetup != .ours && !hasDesktopPlugin
+            && ((showsTerminalSetup) || (showsDesktopSetup))
+    }
+
     private var language: Language { previewLanguage ?? Language.resolve(choice: languageChoice) }
     private var strings: Strings { .of(language) }
     private var theme: AppTheme { .stored(themeChoice) }
     private var sessionCount: Int { (summary.current == nil ? 0 : 1) + summary.others.count }
     private var shown: Page { page ?? initialPage }
+    /// Limits arrive with a session's first response; before that their absence says nothing.
+    private var hasAnsweredSession: Bool { (summary.current?.contextTokens ?? 0) > 0 }
     private var lessons: [Lesson] { Guide.lessons(language) }
     private var read: Set<String> { Set(readLessons.split(separator: ",").map(String.init)) }
 
@@ -679,8 +786,12 @@ struct PopoverView: View {
                     advice: current.advice, strings: strings,
                     onWhy: Guide.lessonID(for: current.advice.kind).map { id in { open(id) } })
             }
-            LimitCard(title: strings.fiveHourTitle, symbol: "bolt.fill", limit: summary.fiveHour, strings: strings)
-            LimitCard(title: strings.sevenDayTitle, symbol: "calendar", limit: summary.sevenDay, strings: strings)
+            LimitCard(
+                title: strings.fiveHourTitle, symbol: "bolt.fill", limit: summary.fiveHour, strings: strings,
+                isNotReported: hasAnsweredSession)
+            LimitCard(
+                title: strings.sevenDayTitle, symbol: "calendar", limit: summary.sevenDay, strings: strings,
+                isNotReported: hasAnsweredSession)
             if let current = summary.current {
                 SessionCard(
                     session: current, strings: strings, isSubscription: summary.isSubscription,
@@ -704,11 +815,26 @@ struct PopoverView: View {
                     }
                 }
             }
-            if !isPreview {
-                SetupCard(strings: strings)
+            if showsTerminalSetup {
+                SetupCard(
+                    strings: strings, state: previewsSetup ? .constant(.notConfigured) : $terminalSetup,
+                    hide: { hidesTerminalSetup = true })
+            }
+            if showsDesktopSetup {
+                DesktopSetupCard(
+                    strings: strings, isInstalled: previewsSetup ? .constant(false) : $hasDesktopPlugin,
+                    bundled: bundledPlugin,
+                    claude: previewsSetup ? URL(fileURLWithPath: "/usr/bin/true") : claude,
+                    hide: { hidesDesktopSetup = true })
             }
         }
         .padding(12)
+        .onAppear {
+            // Either may have been set up elsewhere since the popover was last open.
+            terminalSetup = StatusLineSetup.state()
+            hasDesktopPlugin = PluginSetup.isInstalled(home: FileManager.default.homeDirectoryForCurrentUser)
+            claude = PluginSetup.claudeExecutable(home: FileManager.default.homeDirectoryForCurrentUser)
+        }
     }
 
     private var header: some View {
@@ -791,11 +917,12 @@ struct PopoverView: View {
     private var emptyState: some View {
         Card {
             HStack(spacing: 12) {
-                IconBadge(symbol: "moon.zzz.fill", tint: .secondary)
+                // Until something feeds the app, "send a message" would be a false promise.
+                IconBadge(symbol: isUnconnected ? "link.badge.plus" : "moon.zzz.fill", tint: isUnconnected ? .tone(.warn) : .secondary)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(strings.emptyTitle).font(.system(.subheadline, design: .rounded)).fontWeight(.bold)
+                    Text(isUnconnected ? strings.connectTitle : strings.emptyTitle).font(.system(.subheadline, design: .rounded)).fontWeight(.bold)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(strings.emptyHint)
+                    Text(isUnconnected ? strings.connectHint : strings.emptyHint)
                         .font(.rounded(10)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }

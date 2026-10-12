@@ -70,12 +70,4 @@ final class AdviceTests: XCTestCase {
             }
         }
     }
-
-    func testStatusLineCue() {
-        XCTAssertEqual(advice(120_000, .expires(in: 300)).statusLineCue, "compact now")
-        XCTAssertEqual(advice(120_000, .expired).statusLineCue, "compact or clear")
-        XCTAssertEqual(advice(120_000, .expires(in: 3000)).statusLineCue, "compact at next break")
-        XCTAssertNil(advice(70_000, .expires(in: 3000)).statusLineCue)
-        XCTAssertNil(advice(10_000, .expired).statusLineCue)
-    }
 }
