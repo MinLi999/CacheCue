@@ -53,6 +53,74 @@ public struct SupportThread: Decodable, Equatable {
     public let replies: [SupportReply]
 }
 
+/// Keeps track of which replies from support the person has yet to read, and which ones the
+/// bell has already rung for. It is saved on this Mac, so neither is forgotten over a restart.
+public struct SupportInbox: Codable, Equatable {
+    /// The newest reply from support known for each ticket, by its id.
+    public private(set) var latest: [String: Int] = [:]
+    /// The newest reply from support the person has opened, by ticket.
+    public private(set) var seen: [String: Int] = [:]
+    /// The newest reply from support the bell has rung for, by ticket.
+    public private(set) var announced: [String: Int] = [:]
+    /// Each ticket's status when last asked, to notice one being resolved.
+    public private(set) var statuses: [String: String] = [:]
+
+    /// One round asks about this many tickets at most.
+    public static let ticketsPerCheck = 5
+
+    public init() {}
+
+    /// Tickets with a reply from support that has not been opened, the newest reply first.
+    public var unread: [String] {
+        latest.filter { $0.value > (seen[$0.key] ?? 0) }
+            .sorted { ($0.value, $0.key) > ($1.value, $1.key) }
+            .map(\.key)
+    }
+
+    /// The tickets worth reading again: those still open, and those just resolved or closed,
+    /// since support often answers and closes a ticket in one go. The list comes newest first.
+    public func ticketsToCheck(_ tickets: [SupportTicket]) -> [SupportTicket] {
+        Array(tickets.filter { $0.acceptsReplies || statuses[$0.id] != $0.status }.prefix(Self.ticketsPerCheck))
+    }
+
+    /// Takes in a round's answers. True when there is a reply the bell has not rung for yet.
+    public mutating func take(tickets: [SupportTicket], threads: [SupportThread]) -> Bool {
+        var rings = false
+        for thread in threads {
+            let id = thread.ticket.id
+            statuses[id] = thread.ticket.status
+            guard let newest = thread.replies.filter(\.isFromSupport).map(\.id).max() else { continue }
+            latest[id] = max(newest, latest[id] ?? 0)
+            if newest > max(seen[id] ?? 0, announced[id] ?? 0) {
+                announced[id] = newest
+                rings = true
+            }
+        }
+        // A ticket the server no longer lists has nothing left to open.
+        let known = Set(tickets.map(\.id))
+        latest = latest.filter { known.contains($0.key) }
+        seen = seen.filter { known.contains($0.key) }
+        announced = announced.filter { known.contains($0.key) }
+        statuses = statuses.filter { known.contains($0.key) }
+        return rings
+    }
+
+    /// The person has this ticket's conversation in front of them.
+    public mutating func markSeen(_ thread: SupportThread) {
+        let id = thread.ticket.id
+        statuses[id] = thread.ticket.status
+        guard let newest = thread.replies.filter(\.isFromSupport).map(\.id).max() else { return }
+        latest[id] = max(newest, latest[id] ?? 0)
+        seen[id] = max(newest, seen[id] ?? 0)
+        announced[id] = max(newest, announced[id] ?? 0)
+    }
+
+    /// Whether any ticket could still get a reply, which is when it is worth asking again.
+    public static func isWorthWatching(_ tickets: [SupportTicket]) -> Bool {
+        tickets.contains(where: \.acceptsReplies)
+    }
+}
+
 /// The requests the support pages make, built here so they can be checked without a
 /// network. Nothing is sent until the person opens the support page: a ticket carries
 /// what they typed, their email, and `deviceID`, a random id this Mac keeps so that
@@ -61,6 +129,8 @@ public enum SupportAPI {
     public static let baseURL = URL(string: "https://support-api.elvisli.ca")!
     public static let appID = "CacheCue"
     public static let maxAttachmentBytes = 5 * 1024 * 1024
+    /// How often the app asks whether support has replied, while a ticket is open.
+    public static let replyCheckInterval: TimeInterval = 300
 
     public struct Attachment: Equatable {
         public let filename: String

@@ -102,7 +102,7 @@ The plugin is built on Claude Code's function-hooks API, which is in early acces
 
 ## Getting help
 
-The lifebuoy button in the popover opens support: write to the developer, attach a screenshot if it helps, and follow the conversation under **My Tickets**, all without leaving the app.
+The lifebuoy button in the popover opens support: write to the developer, attach a screenshot if it helps, and follow the conversation under **My Tickets**, all without leaving the app. When support answers, CacheCue plays a sound and an envelope pulses at the top of the popover; press it to go straight to the reply.
 
 <p>
   <img src="docs/screenshots/support-en-light.png" width="300" alt="The support form: email, description, optional attachment, and a note on what is sent">
@@ -113,7 +113,7 @@ The lifebuoy button in the popover opens support: write to the developer, attach
 
 - **The network is used for two things, and never for your sessions.**
   - *Updates*, which you can turn off: once a day [Sparkle](https://sparkle-project.org) asks `elvisli.ca/cachecue/appcast.xml` (the author's site, which only redirects to this repository's latest release on GitHub) whether there is a newer version, and downloads it from GitHub when you choose to install it.
-  - *Support tickets*, only when you open the support page yourself: sending a ticket sends your email, what you wrote, an optional attachment and a random ID for this Mac (so "My Tickets" can find it again) to the developer's support server.
+  - *Support tickets*, only once you have used the support page yourself: sending a ticket sends your email, what you wrote, an optional attachment and a random ID for this Mac (so "My Tickets" can find it again) to the developer's support server. After that, while one of your tickets is still open, the app asks that server every five minutes whether support has replied, sending only the random ID; it stops when your tickets are closed. If you never open the support page, none of this happens.
 
   The status line command and the plugin never touch the network.
 - **No credentials.** It never reads your Claude login, Keychain items or cookies.

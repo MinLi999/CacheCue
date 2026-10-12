@@ -183,6 +183,10 @@ public struct Strings: Equatable {
     public var statusClosed: String
     /// What a ticket sends, said on the form itself.
     public var supportPrivacy: String
+    /// Said beside it: what the app goes on to do once a ticket has been sent.
+    public var supportChecksReplies: String
+    /// The mark on the first page when support has answered.
+    public var supportNewReply: String
 
     public func source(_ source: String) -> String {
         switch source {
@@ -303,7 +307,9 @@ extension Strings {
         statusReplied: "Replied",
         statusResolved: "Resolved",
         statusClosed: "Closed",
-        supportPrivacy: "Sends your email, what you write here and a random ID for this Mac to the developer's support server. Nothing about your sessions.")
+        supportPrivacy: "Sends your email, what you write here and a random ID for this Mac to the developer's support server. Nothing about your sessions.",
+        supportChecksReplies: "Once you have sent a ticket, CacheCue asks the server every few minutes whether support has replied, sending only that random ID, until your tickets are closed.",
+        supportNewReply: "New reply from support")
 
     static let zhHans = Strings(
         fiveHourTitle: "5 小时额度", sevenDayTitle: "7 天额度", used: "已用", noReading: "暂无读数",
@@ -384,7 +390,9 @@ extension Strings {
         statusReplied: "已回复",
         statusResolved: "已解决",
         statusClosed: "已关闭",
-        supportPrivacy: "会把你的邮箱、这里填写的内容和本机的一个随机 ID 发送到开发者的支持服务器。不包含任何会话数据。")
+        supportPrivacy: "会把你的邮箱、这里填写的内容和本机的一个随机 ID 发送到开发者的支持服务器。不包含任何会话数据。",
+        supportChecksReplies: "提交工单后，CacheCue 会每隔几分钟向服务器询问是否有回复（只发送那个随机 ID），直到工单全部关闭。",
+        supportNewReply: "支持有新回复")
 
     static let zhHant = Strings(
         fiveHourTitle: "5 小時額度", sevenDayTitle: "7 天額度", used: "已用", noReading: "暫無讀數",
@@ -465,7 +473,9 @@ extension Strings {
         statusReplied: "已回覆",
         statusResolved: "已解決",
         statusClosed: "已關閉",
-        supportPrivacy: "會把你的電子郵件、這裡填寫的內容和本機的一個隨機 ID 傳送到開發者的支援伺服器。不包含任何工作階段資料。")
+        supportPrivacy: "會把你的電子郵件、這裡填寫的內容和本機的一個隨機 ID 傳送到開發者的支援伺服器。不包含任何工作階段資料。",
+        supportChecksReplies: "送出工單後，CacheCue 會每隔幾分鐘向伺服器詢問是否有回覆（只傳送那個隨機 ID），直到工單全部關閉。",
+        supportNewReply: "支援有新回覆")
 
     static let ja = Strings(
         fiveHourTitle: "5時間の上限", sevenDayTitle: "7日間の上限", used: "使用済み", noReading: "データなし",
@@ -546,7 +556,9 @@ extension Strings {
         statusReplied: "返信済み",
         statusResolved: "解決済み",
         statusClosed: "クローズ",
-        supportPrivacy: "メールアドレス、ここに書いた内容、この Mac のランダムな ID を開発者のサポートサーバーに送信します。セッションの情報は含まれません。")
+        supportPrivacy: "メールアドレス、ここに書いた内容、この Mac のランダムな ID を開発者のサポートサーバーに送信します。セッションの情報は含まれません。",
+        supportChecksReplies: "チケットを送信すると、すべてのチケットが閉じるまで、CacheCue は数分おきにサーバーへ返信の有無を問い合わせます（送るのはそのランダム ID だけです）。",
+        supportNewReply: "サポートから新しい返信")
 
     static let ko = Strings(
         fiveHourTitle: "5시간 한도", sevenDayTitle: "7일 한도", used: "사용됨", noReading: "데이터 없음",
@@ -627,7 +639,9 @@ extension Strings {
         statusReplied: "답변됨",
         statusResolved: "해결됨",
         statusClosed: "닫힘",
-        supportPrivacy: "이메일, 여기에 쓴 내용, 이 Mac의 임의 ID를 개발자의 지원 서버로 보냅니다. 세션에 관한 정보는 포함되지 않습니다.")
+        supportPrivacy: "이메일, 여기에 쓴 내용, 이 Mac의 임의 ID를 개발자의 지원 서버로 보냅니다. 세션에 관한 정보는 포함되지 않습니다.",
+        supportChecksReplies: "티켓을 보낸 뒤에는 모든 티켓이 닫힐 때까지 CacheCue가 몇 분마다 서버에 답변이 왔는지 묻습니다(그 무작위 ID만 보냅니다).",
+        supportNewReply: "지원팀의 새 답변")
 
     static let de = Strings(
         fiveHourTitle: "5-Stunden-Limit", sevenDayTitle: "7-Tage-Limit", used: "Genutzt", noReading: "Noch kein Wert",
@@ -708,7 +722,9 @@ extension Strings {
         statusReplied: "Beantwortet",
         statusResolved: "Gelöst",
         statusClosed: "Geschlossen",
-        supportPrivacy: "Sendet deine E-Mail-Adresse, deinen Text und eine zufällige ID für diesen Mac an den Support-Server des Entwicklers. Nichts über deine Sitzungen.")
+        supportPrivacy: "Sendet deine E-Mail-Adresse, deinen Text und eine zufällige ID für diesen Mac an den Support-Server des Entwicklers. Nichts über deine Sitzungen.",
+        supportChecksReplies: "Nach dem Absenden eines Tickets fragt CacheCue alle paar Minuten beim Server nach, ob der Support geantwortet hat – nur mit dieser zufälligen ID –, bis deine Tickets geschlossen sind.",
+        supportNewReply: "Neue Antwort vom Support")
 
     static let fr = Strings(
         fiveHourTitle: "Limite 5 heures", sevenDayTitle: "Limite 7 jours", used: "Utilisé", noReading: "Pas encore de mesure",
@@ -789,7 +805,9 @@ extension Strings {
         statusReplied: "Répondu",
         statusResolved: "Résolu",
         statusClosed: "Fermé",
-        supportPrivacy: "Envoie votre e-mail, ce que vous écrivez ici et un identifiant aléatoire pour ce Mac au serveur d’assistance du développeur. Rien sur vos sessions.")
+        supportPrivacy: "Envoie votre e-mail, ce que vous écrivez ici et un identifiant aléatoire pour ce Mac au serveur d’assistance du développeur. Rien sur vos sessions.",
+        supportChecksReplies: "Après l'envoi d'un ticket, CacheCue demande au serveur toutes les quelques minutes si le support a répondu, en n'envoyant que cet identifiant aléatoire, jusqu'à la clôture de vos tickets.",
+        supportNewReply: "Nouvelle réponse du support")
 
     static let es = Strings(
         fiveHourTitle: "Límite de 5 horas", sevenDayTitle: "Límite de 7 días", used: "Usado", noReading: "Aún sin datos",
@@ -870,7 +888,9 @@ extension Strings {
         statusReplied: "Respondido",
         statusResolved: "Resuelto",
         statusClosed: "Cerrado",
-        supportPrivacy: "Envía tu correo, lo que escribas aquí y un ID aleatorio de este Mac al servidor de soporte del desarrollador. Nada sobre tus sesiones.")
+        supportPrivacy: "Envía tu correo, lo que escribas aquí y un ID aleatorio de este Mac al servidor de soporte del desarrollador. Nada sobre tus sesiones.",
+        supportChecksReplies: "Tras enviar un ticket, CacheCue pregunta al servidor cada pocos minutos si soporte ha respondido, enviando solo ese ID aleatorio, hasta que tus tickets se cierren.",
+        supportNewReply: "Nueva respuesta de soporte")
 
     static let pt = Strings(
         fiveHourTitle: "Limite de 5 horas", sevenDayTitle: "Limite de 7 dias", used: "Usado", noReading: "Ainda sem dados",
@@ -951,7 +971,9 @@ extension Strings {
         statusReplied: "Respondido",
         statusResolved: "Resolvido",
         statusClosed: "Fechado",
-        supportPrivacy: "Envia seu e-mail, o que você escrever aqui e um ID aleatório deste Mac ao servidor de suporte do desenvolvedor. Nada sobre suas sessões.")
+        supportPrivacy: "Envia seu e-mail, o que você escrever aqui e um ID aleatório deste Mac ao servidor de suporte do desenvolvedor. Nada sobre suas sessões.",
+        supportChecksReplies: "Depois de enviar um ticket, o CacheCue pergunta ao servidor a cada poucos minutos se o suporte respondeu, enviando apenas esse ID aleatório, até que seus tickets sejam fechados.",
+        supportNewReply: "Nova resposta do suporte")
 
     static let it = Strings(
         fiveHourTitle: "Limite 5 ore", sevenDayTitle: "Limite 7 giorni", used: "Usato", noReading: "Nessun dato",
@@ -1032,7 +1054,9 @@ extension Strings {
         statusReplied: "Risposto",
         statusResolved: "Risolto",
         statusClosed: "Chiuso",
-        supportPrivacy: "Invia la tua email, ciò che scrivi qui e un ID casuale di questo Mac al server di supporto dello sviluppatore. Nulla sulle tue sessioni.")
+        supportPrivacy: "Invia la tua email, ciò che scrivi qui e un ID casuale di questo Mac al server di supporto dello sviluppatore. Nulla sulle tue sessioni.",
+        supportChecksReplies: "Dopo l'invio di un ticket, CacheCue chiede al server ogni pochi minuti se il supporto ha risposto, inviando solo quell'ID casuale, finché i tuoi ticket non vengono chiusi.",
+        supportNewReply: "Nuova risposta dal supporto")
 
     static let nl = Strings(
         fiveHourTitle: "5-uurslimiet", sevenDayTitle: "7-dagenlimiet", used: "Gebruikt", noReading: "Nog geen meting",
@@ -1113,7 +1137,9 @@ extension Strings {
         statusReplied: "Beantwoord",
         statusResolved: "Opgelost",
         statusClosed: "Gesloten",
-        supportPrivacy: "Stuurt je e-mailadres, wat je hier schrijft en een willekeurige ID voor deze Mac naar de supportserver van de ontwikkelaar. Niets over je sessies.")
+        supportPrivacy: "Stuurt je e-mailadres, wat je hier schrijft en een willekeurige ID voor deze Mac naar de supportserver van de ontwikkelaar. Niets over je sessies.",
+        supportChecksReplies: "Nadat je een ticket hebt verstuurd, vraagt CacheCue om de paar minuten aan de server of support heeft geantwoord, met alleen die willekeurige ID, totdat je tickets gesloten zijn.",
+        supportNewReply: "Nieuw antwoord van support")
 
     static let sv = Strings(
         fiveHourTitle: "5-timmarsgräns", sevenDayTitle: "7-dagarsgräns", used: "Använt", noReading: "Inget värde än",
@@ -1194,7 +1220,9 @@ extension Strings {
         statusReplied: "Besvarad",
         statusResolved: "Löst",
         statusClosed: "Stängd",
-        supportPrivacy: "Skickar din e-postadress, det du skriver här och ett slumpmässigt ID för den här Macen till utvecklarens supportserver. Inget om dina sessioner.")
+        supportPrivacy: "Skickar din e-postadress, det du skriver här och ett slumpmässigt ID för den här Macen till utvecklarens supportserver. Inget om dina sessioner.",
+        supportChecksReplies: "När du har skickat ett ärende frågar CacheCue servern med några minuters mellanrum om supporten har svarat, och skickar bara det slumpmässiga ID:t, tills dina ärenden är stängda.",
+        supportNewReply: "Nytt svar från supporten")
 
     static let pl = Strings(
         fiveHourTitle: "Limit 5-godzinny", sevenDayTitle: "Limit 7-dniowy", used: "Użyto", noReading: "Brak odczytu",
@@ -1275,7 +1303,9 @@ extension Strings {
         statusReplied: "Odpowiedziano",
         statusResolved: "Rozwiązane",
         statusClosed: "Zamknięte",
-        supportPrivacy: "Wysyła Twój e-mail, to, co tu napiszesz, i losowy identyfikator tego Maca na serwer wsparcia dewelopera. Nic o Twoich sesjach.")
+        supportPrivacy: "Wysyła Twój e-mail, to, co tu napiszesz, i losowy identyfikator tego Maca na serwer wsparcia dewelopera. Nic o Twoich sesjach.",
+        supportChecksReplies: "Po wysłaniu zgłoszenia CacheCue co kilka minut pyta serwer, czy wsparcie odpowiedziało, wysyłając tylko ten losowy identyfikator, dopóki zgłoszenia nie zostaną zamknięte.",
+        supportNewReply: "Nowa odpowiedź od wsparcia")
 
     static let ru = Strings(
         fiveHourTitle: "Лимит на 5 часов", sevenDayTitle: "Лимит на 7 дней", used: "Использовано", noReading: "Данных пока нет",
@@ -1356,7 +1386,9 @@ extension Strings {
         statusReplied: "Отвечено",
         statusResolved: "Решён",
         statusClosed: "Закрыт",
-        supportPrivacy: "Отправляет вашу почту, написанный здесь текст и случайный идентификатор этого Mac на сервер поддержки разработчика. Ничего о ваших сессиях.")
+        supportPrivacy: "Отправляет вашу почту, написанный здесь текст и случайный идентификатор этого Mac на сервер поддержки разработчика. Ничего о ваших сессиях.",
+        supportChecksReplies: "После отправки обращения CacheCue раз в несколько минут спрашивает сервер, ответила ли поддержка, отправляя только этот случайный ID, пока обращения не будут закрыты.",
+        supportNewReply: "Новый ответ поддержки")
 
     static let tr = Strings(
         fiveHourTitle: "5 Saatlik Limit", sevenDayTitle: "7 Günlük Limit", used: "Kullanıldı", noReading: "Henüz veri yok",
@@ -1437,7 +1469,9 @@ extension Strings {
         statusReplied: "Yanıtlandı",
         statusResolved: "Çözüldü",
         statusClosed: "Kapalı",
-        supportPrivacy: "E-postanızı, buraya yazdıklarınızı ve bu Mac için rastgele bir kimliği geliştiricinin destek sunucusuna gönderir. Oturumlarınızla ilgili hiçbir şey gönderilmez.")
+        supportPrivacy: "E-postanızı, buraya yazdıklarınızı ve bu Mac için rastgele bir kimliği geliştiricinin destek sunucusuna gönderir. Oturumlarınızla ilgili hiçbir şey gönderilmez.",
+        supportChecksReplies: "Bir destek talebi gönderdikten sonra CacheCue, talepleriniz kapanana kadar birkaç dakikada bir sunucuya desteğin yanıt verip vermediğini sorar; yalnızca o rastgele kimliği gönderir.",
+        supportNewReply: "Destekten yeni yanıt")
 
     static let id = Strings(
         fiveHourTitle: "Batas 5 Jam", sevenDayTitle: "Batas 7 Hari", used: "Terpakai", noReading: "Belum ada data",
@@ -1518,7 +1552,9 @@ extension Strings {
         statusReplied: "Dibalas",
         statusResolved: "Terselesaikan",
         statusClosed: "Ditutup",
-        supportPrivacy: "Mengirim email Anda, yang Anda tulis di sini, dan ID acak untuk Mac ini ke server dukungan pengembang. Tidak ada data sesi Anda.")
+        supportPrivacy: "Mengirim email Anda, yang Anda tulis di sini, dan ID acak untuk Mac ini ke server dukungan pengembang. Tidak ada data sesi Anda.",
+        supportChecksReplies: "Setelah Anda mengirim tiket, CacheCue bertanya ke server setiap beberapa menit apakah dukungan sudah membalas, hanya dengan mengirim ID acak itu, sampai tiket Anda ditutup.",
+        supportNewReply: "Balasan baru dari dukungan")
 
     static let vi = Strings(
         fiveHourTitle: "Giới hạn 5 giờ", sevenDayTitle: "Giới hạn 7 ngày", used: "Đã dùng", noReading: "Chưa có số liệu",
@@ -1599,7 +1635,9 @@ extension Strings {
         statusReplied: "Đã trả lời",
         statusResolved: "Đã giải quyết",
         statusClosed: "Đã đóng",
-        supportPrivacy: "Gửi email của bạn, nội dung bạn viết ở đây và một ID ngẫu nhiên của máy Mac này tới máy chủ hỗ trợ của nhà phát triển. Không có gì về các phiên của bạn.")
+        supportPrivacy: "Gửi email của bạn, nội dung bạn viết ở đây và một ID ngẫu nhiên của máy Mac này tới máy chủ hỗ trợ của nhà phát triển. Không có gì về các phiên của bạn.",
+        supportChecksReplies: "Sau khi bạn gửi yêu cầu, CacheCue sẽ hỏi máy chủ vài phút một lần xem bộ phận hỗ trợ đã trả lời chưa, chỉ gửi ID ngẫu nhiên đó, cho đến khi các yêu cầu của bạn được đóng.",
+        supportNewReply: "Phản hồi mới từ bộ phận hỗ trợ")
 
     static let th = Strings(
         fiveHourTitle: "โควตา 5 ชั่วโมง", sevenDayTitle: "โควตา 7 วัน", used: "ใช้ไป", noReading: "ยังไม่มีข้อมูล",
@@ -1680,7 +1718,9 @@ extension Strings {
         statusReplied: "ตอบแล้ว",
         statusResolved: "แก้ไขแล้ว",
         statusClosed: "ปิด",
-        supportPrivacy: "ส่งอีเมลของคุณ สิ่งที่คุณเขียนที่นี่ และ ID แบบสุ่มของ Mac เครื่องนี้ไปยังเซิร์ฟเวอร์ซัพพอร์ตของผู้พัฒนา ไม่มีข้อมูลเซสชันของคุณ")
+        supportPrivacy: "ส่งอีเมลของคุณ สิ่งที่คุณเขียนที่นี่ และ ID แบบสุ่มของ Mac เครื่องนี้ไปยังเซิร์ฟเวอร์ซัพพอร์ตของผู้พัฒนา ไม่มีข้อมูลเซสชันของคุณ",
+        supportChecksReplies: "หลังจากส่งตั๋วแล้ว CacheCue จะถามเซิร์ฟเวอร์ทุกไม่กี่นาทีว่าฝ่ายสนับสนุนตอบแล้วหรือยัง โดยส่งเฉพาะ ID แบบสุ่มนั้น จนกว่าตั๋วของคุณจะถูกปิด",
+        supportNewReply: "มีคำตอบใหม่จากฝ่ายสนับสนุน")
 
     static let hi = Strings(
         fiveHourTitle: "5 घंटे की सीमा", sevenDayTitle: "7 दिन की सीमा", used: "उपयोग", noReading: "अभी कोई डेटा नहीं",
@@ -1761,7 +1801,9 @@ extension Strings {
         statusReplied: "उत्तर दिया",
         statusResolved: "हल किया",
         statusClosed: "बंद",
-        supportPrivacy: "आपका ईमेल, यहाँ लिखी बात और इस Mac की एक रैंडम ID डेवलपर के सपोर्ट सर्वर को भेजता है। आपके सत्रों के बारे में कुछ नहीं।")
+        supportPrivacy: "आपका ईमेल, यहाँ लिखी बात और इस Mac की एक रैंडम ID डेवलपर के सपोर्ट सर्वर को भेजता है। आपके सत्रों के बारे में कुछ नहीं।",
+        supportChecksReplies: "टिकट भेजने के बाद, CacheCue हर कुछ मिनट में सर्वर से पूछता है कि सहायता ने उत्तर दिया या नहीं — केवल वही रैंडम ID भेजकर — जब तक आपके टिकट बंद नहीं हो जाते।",
+        supportNewReply: "सहायता से नया उत्तर")
 
     static let ar = Strings(
         fiveHourTitle: "حد 5 ساعات", sevenDayTitle: "حد 7 أيام", used: "المستخدم", noReading: "لا توجد قراءة بعد",
@@ -1842,5 +1884,7 @@ extension Strings {
         statusReplied: "تم الرد",
         statusResolved: "تم الحل",
         statusClosed: "مغلقة",
-        supportPrivacy: "يرسل بريدك الإلكتروني وما تكتبه هنا ومعرّفًا عشوائيًا لهذا الـ Mac إلى خادم الدعم لدى المطوّر. لا شيء عن جلساتك.")
+        supportPrivacy: "يرسل بريدك الإلكتروني وما تكتبه هنا ومعرّفًا عشوائيًا لهذا الـ Mac إلى خادم الدعم لدى المطوّر. لا شيء عن جلساتك.",
+        supportChecksReplies: "بعد إرسال تذكرة، يسأل CacheCue الخادم كل بضع دقائق عمّا إذا كان الدعم قد ردّ، ويرسل ذلك المعرّف العشوائي فقط، إلى أن تُغلق تذاكرك.",
+        supportNewReply: "رد جديد من الدعم")
 }

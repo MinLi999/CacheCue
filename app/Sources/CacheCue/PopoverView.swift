@@ -438,6 +438,36 @@ struct OtherSessionRow: View {
     }
 }
 
+/// The mark that support has answered: an envelope that keeps ringing out until it is pressed.
+struct ReplyBeacon: View {
+    let count: Int
+    @State private var isPulsing = false
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "envelope.badge.fill").font(.system(size: 10, weight: .semibold))
+                .rotationEffect(.degrees(isPulsing ? 9 : -9))
+            // One reply needs no number.
+            if count > 1 {
+                Text("\(count)").font(.rounded(9, .bold)).monospacedDigit()
+            }
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 6).padding(.vertical, 3)
+        .background(Capsule().fill(Color.orange))
+        .background(
+            // A ring that spreads from the badge and fades, over and over.
+            Capsule().stroke(Color.orange, lineWidth: 2)
+                .scaleEffect(isPulsing ? 1.45 : 1)
+                .opacity(isPulsing ? 0 : 0.8)
+        )
+        .scaleEffect(isPulsing ? 1.06 : 0.97)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { isPulsing = true }
+        }
+    }
+}
+
 // MARK: - The guide
 
 /// The list of lessons, with the ones already read ticked.
@@ -583,6 +613,8 @@ struct PopoverView: View {
     var support: SupportModel?
     /// Whether the support pages are showing; mirrors `support.isPresented`.
     var isShowingSupport = false
+    /// How many tickets have a reply from support not opened yet; mirrors `support.unread`.
+    var unreadReplies = 0
 
     @State private var page: Page?
     /// Lesson ids already opened, comma-separated.
@@ -714,7 +746,17 @@ struct PopoverView: View {
                 }
                 .buttonStyle(.plain)
                 .help(strings.guideTitle)
-                if let support {
+                if let support, unreadReplies > 0 {
+                    // Support has answered: the way into support becomes the way to that answer.
+                    Button {
+                        support.showUnread()
+                    } label: {
+                        ReplyBeacon(count: unreadReplies)
+                    }
+                    .buttonStyle(.plain)
+                    .help(strings.supportNewReply)
+                    .accessibilityLabel(strings.supportNewReply)
+                } else if let support {
                     Button {
                         support.isPresented = true
                     } label: {

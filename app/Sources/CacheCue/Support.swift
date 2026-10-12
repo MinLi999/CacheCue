@@ -7,13 +7,18 @@ import UniformTypeIdentifiers
 /// own, and only once the person has opened the support page.
 enum SupportService {
     /// A random id this Mac keeps, so "My Tickets" can find what was sent from here.
+    private static let deviceKey = "support_device_id"
+
     static var deviceID: String {
-        let key = "support_device_id"
-        if let stored = UserDefaults.standard.string(forKey: key) { return stored }
+        if let stored = UserDefaults.standard.string(forKey: deviceKey) { return stored }
         let made = UUID().uuidString
-        UserDefaults.standard.set(made, forKey: key)
+        UserDefaults.standard.set(made, forKey: deviceKey)
         return made
     }
+
+    /// Whether the support pages have ever been used on this Mac. Until they have, the server
+    /// has never heard of it, and nothing here goes looking for replies.
+    static var hasBeenUsed: Bool { UserDefaults.standard.string(forKey: deviceKey) != nil }
 
     struct ServerError: LocalizedError {
         let message: String
@@ -98,6 +103,80 @@ final class SupportModel: ObservableObject {
     @Published var reply = ""
     @Published var hasReplyFailed = false
 
+    /// Tickets with a reply from support not opened yet, the newest reply first.
+    @Published private(set) var unread: [String] = []
+    private var inbox = SupportInbox() {
+        didSet {
+            unread = inbox.unread
+            if let data = try? JSONEncoder().encode(inbox) { UserDefaults.standard.set(data, forKey: Self.inboxKey) }
+        }
+    }
+    private var timer: Timer?
+    private var isChecking = false
+    private static let inboxKey = "support_inbox"
+    private static let watchKey = "support_watch"
+
+    /// `watching` starts the quiet look for replies; the off-screen render does without it.
+    init(watching: Bool = false) {
+        guard watching else { return }
+        if let data = UserDefaults.standard.data(forKey: Self.inboxKey),
+           let saved = try? JSONDecoder().decode(SupportInbox.self, from: data) {
+            inbox = saved
+        }
+        let timer = Timer(timeInterval: SupportAPI.replyCheckInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkForReplies() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+        // Once shortly after launch, for a reply that came while the app was not running.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            self?.checkForReplies()
+        }
+    }
+
+    /// Asks the server whether support has answered. It asks only once the support pages have
+    /// been used on this Mac, and only while a ticket could still get a reply.
+    func checkForReplies() {
+        let defaults = UserDefaults.standard
+        let isWatching = defaults.object(forKey: Self.watchKey) as? Bool ?? SupportService.hasBeenUsed
+        guard isWatching, !isChecking else { return }
+        isChecking = true
+        Task {
+            defer { isChecking = false }
+            // Offline, or the server is away: say nothing and ask again next time.
+            guard let tickets = try? await SupportService.tickets() else { return }
+            var threads: [SupportThread] = []
+            for ticket in inbox.ticketsToCheck(tickets) {
+                if let thread = try? await SupportService.thread(ticket.id) { threads.append(thread) }
+            }
+            defaults.set(SupportInbox.isWorthWatching(tickets), forKey: Self.watchKey)
+            var updated = inbox
+            let rings = updated.take(tickets: tickets, threads: threads)
+            // A conversation already on screen shows the new reply at once, and so counts as read.
+            if isPresented, let open = threads.first(where: { $0.ticket.id == openTicket }) {
+                thread = open
+                updated.markSeen(open)
+            }
+            if updated != inbox { inbox = updated }
+            if rings { NSSound(named: "Glass")?.play() }
+        }
+    }
+
+    /// Goes straight to the ticket with the newest unread reply.
+    func showUnread() {
+        guard let ticketID = unread.first else { return }
+        tab = .tickets
+        isPresented = true
+        open(ticketID)
+    }
+
+    private func markSeen(_ thread: SupportThread) {
+        var updated = inbox
+        updated.markSeen(thread)
+        if updated != inbox { inbox = updated }
+    }
+
     func pick() {
         switch SupportService.pickAttachment() {
         case .none: break
@@ -123,6 +202,8 @@ final class SupportModel: ObservableObject {
                 attachment = nil
                 notice = .sent
                 tickets = nil
+                // There is now a ticket that can get a reply.
+                UserDefaults.standard.set(true, forKey: Self.watchKey)
             } catch {
                 notice = .failed(error.localizedDescription)
             }
@@ -134,7 +215,13 @@ final class SupportModel: ObservableObject {
         isLoading = true
         hasLoadFailed = false
         Task {
-            do { tickets = try await SupportService.tickets() } catch { hasLoadFailed = true }
+            do {
+                let loaded = try await SupportService.tickets()
+                tickets = loaded
+                UserDefaults.standard.set(SupportInbox.isWorthWatching(loaded), forKey: Self.watchKey)
+            } catch {
+                hasLoadFailed = true
+            }
             isLoading = false
         }
     }
@@ -152,7 +239,13 @@ final class SupportModel: ObservableObject {
         isLoading = true
         hasLoadFailed = false
         Task {
-            do { thread = try await SupportService.thread(openTicket) } catch { hasLoadFailed = true }
+            do {
+                let loaded = try await SupportService.thread(openTicket)
+                thread = loaded
+                markSeen(loaded)
+            } catch {
+                hasLoadFailed = true
+            }
             isLoading = false
         }
     }
@@ -166,7 +259,9 @@ final class SupportModel: ObservableObject {
             do {
                 try await SupportService.reply(openTicket, message: message, attachment: nil)
                 reply = ""
-                thread = try await SupportService.thread(openTicket)
+                let loaded = try await SupportService.thread(openTicket)
+                thread = loaded
+                markSeen(loaded)
             } catch {
                 hasReplyFailed = true
             }
@@ -286,7 +381,7 @@ struct SupportView: View {
             // What pressing Submit sends, said where it is pressed.
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "lock.shield").font(.system(size: 10)).foregroundColor(.secondary)
-                Text(strings.supportPrivacy).font(.rounded(9)).foregroundColor(.secondary)
+                Text(strings.supportPrivacy + " " + strings.supportChecksReplies).font(.rounded(9)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -372,6 +467,10 @@ struct SupportView: View {
                                 HStack {
                                     Text(ticket.createdAt).font(.rounded(9)).monospacedDigit().foregroundColor(.secondary)
                                     Spacer()
+                                    if model.unread.contains(ticket.id) {
+                                        Circle().fill(Color.orange).frame(width: 7, height: 7)
+                                            .help(strings.supportNewReply)
+                                    }
                                     Pill(text: status(ticket).text, tint: status(ticket).tint)
                                 }
                             }

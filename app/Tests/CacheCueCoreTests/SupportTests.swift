@@ -53,6 +53,85 @@ final class SupportTests: XCTestCase {
         }
     }
 
+    private func thread(_ id: String, status: String = "replied", replies: [(id: Int, fromSupport: Bool)]) throws -> SupportThread {
+        let list = replies.map {
+            #"{"id":\#($0.id),"message":"m","is_admin":\#($0.fromSupport ? 1 : 0),"attachment_url":null,"created_at":"t"}"#
+        }.joined(separator: ",")
+        let json = #"{"ticket":{"id":"\#(id)","email":"a@b.co","description":"d","status":"\#(status)","created_at":"t"},"replies":[\#(list)]}"#
+        return try JSONDecoder().decode(SupportThread.self, from: Data(json.utf8))
+    }
+
+    func testTheBellRingsOncePerReplyAndOpeningATicketReadsIt() throws {
+        var inbox = SupportInbox()
+        let asked = try thread("T1", status: "open", replies: [(1, false)])
+        // The person's own messages are not news.
+        XCTAssertFalse(inbox.take(tickets: [asked.ticket], threads: [asked]))
+        XCTAssertEqual(inbox.unread, [])
+
+        let answered = try thread("T1", replies: [(1, false), (2, true)])
+        XCTAssertTrue(inbox.take(tickets: [answered.ticket], threads: [answered]))
+        XCTAssertEqual(inbox.unread, ["T1"])
+        // Asking again finds the same reply: still unread, but the bell stays quiet.
+        XCTAssertFalse(inbox.take(tickets: [answered.ticket], threads: [answered]))
+        XCTAssertEqual(inbox.unread, ["T1"])
+        // It survives being saved and read back, as it is across a restart.
+        inbox = try JSONDecoder().decode(SupportInbox.self, from: JSONEncoder().encode(inbox))
+        XCTAssertFalse(inbox.take(tickets: [answered.ticket], threads: [answered]))
+        XCTAssertEqual(inbox.unread, ["T1"])
+
+        inbox.markSeen(answered)
+        XCTAssertEqual(inbox.unread, [])
+        XCTAssertFalse(inbox.take(tickets: [answered.ticket], threads: [answered]))
+
+        // A second answer is news again.
+        let again = try thread("T1", replies: [(1, false), (2, true), (3, false), (4, true)])
+        XCTAssertTrue(inbox.take(tickets: [again.ticket], threads: [again]))
+        XCTAssertEqual(inbox.unread, ["T1"])
+    }
+
+    func testAReplyReadOnScreenNeverRings() throws {
+        var inbox = SupportInbox()
+        let answered = try thread("T1", replies: [(5, true)])
+        inbox.markSeen(answered)
+        XCTAssertFalse(inbox.take(tickets: [answered.ticket], threads: [answered]))
+        XCTAssertEqual(inbox.unread, [])
+    }
+
+    func testWhichTicketsAreAskedAbout() throws {
+        var inbox = SupportInbox()
+        let open = try thread("A", status: "open", replies: [])
+        let replied = try thread("B", replies: [(7, true)])
+        let closed = try thread("C", status: "closed", replies: [(3, true)])
+        let all = [open.ticket, replied.ticket, closed.ticket]
+        // A closed ticket is read once, in case it was answered and closed in one go.
+        XCTAssertEqual(inbox.ticketsToCheck(all).map(\.id), ["A", "B", "C"])
+        XCTAssertTrue(inbox.take(tickets: all, threads: [open, replied, closed]))
+        XCTAssertEqual(inbox.unread, ["B", "C"])
+        // After that only the tickets that can still get a reply.
+        XCTAssertEqual(inbox.ticketsToCheck(all).map(\.id), ["A", "B"])
+
+        // Support answers B again and resolves it before the next round: it is read once more.
+        let resolved = try thread("B", status: "resolved", replies: [(7, true), (9, true)])
+        let next = [open.ticket, resolved.ticket, closed.ticket]
+        XCTAssertEqual(inbox.ticketsToCheck(next).map(\.id), ["A", "B"])
+        XCTAssertTrue(inbox.take(tickets: next, threads: [open, resolved]))
+        XCTAssertEqual(inbox.unread, ["B", "C"])
+        XCTAssertEqual(inbox.ticketsToCheck(next).map(\.id), ["A"])
+
+        // With nothing left open there is no reason to keep asking.
+        XCTAssertTrue(SupportInbox.isWorthWatching(next))
+        XCTAssertFalse(SupportInbox.isWorthWatching([resolved.ticket, closed.ticket]))
+        XCTAssertFalse(SupportInbox.isWorthWatching([]))
+
+        // No round asks about more than a handful of tickets.
+        let many = try (0..<9).map { try thread("N\($0)", status: "open", replies: []).ticket }
+        XCTAssertEqual(SupportInbox().ticketsToCheck(many).count, SupportInbox.ticketsPerCheck)
+
+        // A ticket the server no longer lists is forgotten.
+        XCTAssertFalse(inbox.take(tickets: [open.ticket], threads: [open]))
+        XCTAssertEqual(inbox.unread, [])
+    }
+
     /// Sends real requests to a ticket server, to check the two ends agree. Skipped unless
     /// CACHECUE_SUPPORT_TEST_URL names one, which should be a local copy and never the live server.
     func testAgainstALocalTicketServer() throws {

@@ -53,13 +53,13 @@ final class UsageModel: ObservableObject {
 struct UsageBarApp: App {
     @StateObject private var model = UsageModel()
     @StateObject private var updater = Updater()
-    @StateObject private var support = SupportModel()
+    @StateObject private var support = SupportModel(watching: true)
 
     var body: some Scene {
         MenuBarExtra {
             PopoverView(
                 summary: model.summary, updater: updater, pin: model.pin, support: support,
-                isShowingSupport: support.isPresented)
+                isShowingSupport: support.isPresented, unreadReplies: support.unread.count)
                 .background(Material.regular)
         } label: {
             Image(nsImage: MenuBarLabel.image(for: model.summary))
@@ -145,9 +145,10 @@ enum Entry {
         // `--render <folder> [--dark] [--lang <code>] [--page guide|<lesson id>]` writes the
         // popover and the menu bar label as PNGs.
         if let folder = value(after: "--render") {
-            // `support` and `tickets` draw the support pages with sample tickets, not real ones.
+            // `support`, `tickets` and `ticket` draw the support pages with sample tickets, not real
+            // ones; `reply` draws the first page as it looks when support has answered.
             let name = value(after: "--page")
-            let support = name == "support" || name == "tickets" || name == "ticket" ? SupportModel.sample(name ?? "") : nil
+            let support = ["support", "tickets", "ticket", "reply"].contains(name ?? "") ? SupportModel.sample(name ?? "") : nil
             let page: Page = support != nil ? .dashboard : name.map { $0 == "guide" ? .guide : .lesson($0) } ?? .dashboard
             Render.write(
                 summary, to: URL(fileURLWithPath: folder), dark: arguments.contains("--dark"), language: language,
@@ -191,7 +192,7 @@ enum Render {
             let backdrop = dark ? Color(white: 0.16) : Color(white: 0.93)
             let popover = PopoverView(
                 summary: summary, isPreview: true, previewLanguage: language, initialPage: page, support: support,
-                isShowingSupport: support != nil)
+                isShowingSupport: support?.isPresented ?? false, unreadReplies: name == "reply" ? 1 : 0)
                 .background(backdrop)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(16)
@@ -268,7 +269,7 @@ extension SupportModel {
     /// Sample content for the off-screen render of the support pages.
     static func sample(_ page: String) -> SupportModel {
         let model = SupportModel()
-        model.isPresented = true
+        model.isPresented = page != "reply"
         let json = """
         {"ticket":{"id":"T1","email":"you@example.com","description":"The countdown shows --:-- after my first turn in the desktop app.",
           "attachment_url":"/files/shot.png","status":"replied","created_at":"2026-10-11 20:14"},
