@@ -127,6 +127,8 @@ public struct SupportInbox: Codable, Equatable {
 /// "My Tickets" can find them again. It carries nothing about their sessions.
 public enum SupportAPI {
     public static let baseURL = URL(string: "https://support-api.elvisli.ca")!
+    /// The developer's tip page. The app only hands it to the browser; it never fetches it.
+    public static let coffeeURL = URL(string: "https://ko-fi.com/elvislica")!
     public static let appID = "CacheCue"
     public static let maxAttachmentBytes = 5 * 1024 * 1024
     /// How often the app asks whether support has replied, while a ticket is open.

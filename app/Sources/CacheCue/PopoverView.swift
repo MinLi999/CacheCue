@@ -880,6 +880,22 @@ struct PopoverView: View {
                 .buttonStyle(.plain)
                 .disabled(updater?.canCheck != true)
             }
+            HStack(spacing: 8) {
+                // The app is free; this only hands the tip page to the browser.
+                Button {
+                    NSWorkspace.shared.open(SupportAPI.coffeeURL)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cup.and.saucer.fill").font(.system(size: 10, weight: .semibold))
+                        Text(strings.buyCoffee).font(.rounded(11, .semibold)).lineLimit(1)
+                    }
+                    .foregroundColor(.tone(.warn))
+                    .padding(.horizontal, 9).padding(.vertical, 4)
+                    .background(Capsule().fill(Color.tone(.warn).opacity(0.12)))
+                }
+                .buttonStyle(.plain)
+                Spacer(minLength: 8)
+            }
             if let loginError {
                 Text(loginError).font(.rounded(9)).foregroundColor(.tone(.crit)).fixedSize(horizontal: false, vertical: true)
             }

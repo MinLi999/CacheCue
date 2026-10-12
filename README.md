@@ -161,6 +161,10 @@ desktop session ─── cachecue plugin ────────────�
 - `app/Sources/CacheCue`: the SwiftUI popover, the menu bar item and the command-line entry points.
 - `plugin/`: the band for the desktop app.
 
+## Support the project
+
+CacheCue is free and stays free. If it saves you tokens and you would like to say thanks, the **Buy me a coffee** button at the bottom of the popover opens [ko-fi.com/elvislica](https://ko-fi.com/elvislica) in your browser. Nothing in the app depends on it.
+
 ## License
 
 MIT

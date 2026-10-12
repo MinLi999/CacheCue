@@ -218,4 +218,12 @@ final class SupportTests: XCTestCase {
         XCTAssertNil(SupportAPI.attachmentURL("javascript:alert(1)"))
         XCTAssertEqual(SupportAPI.maxAttachmentBytes, 5_242_880)
     }
+
+    // MARK: The tip page
+
+    func testTheCoffeeLinkIsTheDevelopersPage() {
+        XCTAssertEqual(SupportAPI.coffeeURL.absoluteString, "https://ko-fi.com/elvislica")
+        // Every language names it in its own words.
+        XCTAssertEqual(Set(Language.allCases.map { Strings.of($0).buyCoffee }).count, 20)
+    }
 }
