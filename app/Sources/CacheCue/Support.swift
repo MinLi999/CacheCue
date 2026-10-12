@@ -61,11 +61,12 @@ enum SupportService {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.image, .pdf]
+        panel.allowedContentTypes = SupportAPI.attachmentTypes.keys.sorted().compactMap { UTType(filenameExtension: $0) }
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return .none }
         guard data.count <= SupportAPI.maxAttachmentBytes else { return .tooLarge }
-        return .file(SupportAPI.Attachment(filename: url.lastPathComponent, data: data))
+        guard let file = SupportAPI.Attachment(filename: url.lastPathComponent, data: data) else { return .none }
+        return .file(file)
     }
 }
 

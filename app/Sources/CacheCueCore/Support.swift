@@ -65,11 +65,29 @@ public enum SupportAPI {
     public struct Attachment: Equatable {
         public let filename: String
         public let data: Data
+        /// What the file is. The server reads this, not the file name, to decide whether to take it.
+        public let mimeType: String
 
-        public init(filename: String, data: Data) {
+        /// Nil when the file is not one of the kinds the server accepts.
+        public init?(filename: String, data: Data) {
+            guard let mimeType = SupportAPI.mimeType(forFilename: filename) else { return nil }
             self.filename = filename
             self.data = data
+            self.mimeType = mimeType
         }
+    }
+
+    /// The kinds of attachment the server takes: bitmap images and PDF. SVG is left out on purpose,
+    /// because the server hands attachments back as they were sent and an SVG can carry a script.
+    public static let attachmentTypes: [String: String] = [
+        "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif",
+        "heic": "image/heic", "heif": "image/heif", "webp": "image/webp",
+        "tif": "image/tiff", "tiff": "image/tiff", "bmp": "image/bmp", "pdf": "application/pdf",
+    ]
+
+    public static func mimeType(forFilename filename: String) -> String? {
+        guard let dot = filename.lastIndex(of: ".") else { return nil }
+        return attachmentTypes[filename[filename.index(after: dot)...].lowercased()]
     }
 
     /// Enough of a check to catch a slip of the keyboard; the server has the last word.
@@ -91,7 +109,7 @@ public enum SupportAPI {
             // A quote or a line break in a file name would end the header early.
             let name = attachment.filename.filter { $0 != "\"" && $0 != "\r" && $0 != "\n" }
             body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(name)\"\r\n".utf8))
-            body.append(Data("Content-Type: application/octet-stream\r\n\r\n".utf8))
+            body.append(Data("Content-Type: \(attachment.mimeType)\r\n\r\n".utf8))
             body.append(attachment.data)
             body.append(Data("\r\n".utf8))
         }
