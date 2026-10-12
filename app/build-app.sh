@@ -19,11 +19,13 @@ cd "$(dirname "$0")"
 MODE="${1:-}"
 APP="build/CacheCue.app"
 BUNDLE_ID="${BUNDLE_ID:-com.elvisli.CacheCue}"
-REPO="${REPO:-MinLi999/CacheCue}"
+REPO="${REPO:-elvisli999/CacheCue}"
 SPARKLE_ACCOUNT="${SPARKLE_ACCOUNT:-CacheCue}"
 # The public half of the update-signing key: the app trusts only updates signed with its pair.
 SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-0oMHBeZaSDvaFARpVb8ce7f6I8f/H+prBxreVJbtSa4=}"
-FEED_URL="https://github.com/$REPO/releases/latest/download/appcast.xml"
+# The feed lives on a domain we own and redirects to the latest release, so installed copies
+# keep updating if the repository ever moves.
+FEED_URL="${FEED_URL:-https://elvisli.ca/cachecue/appcast.xml}"
 
 # A local build is no release: it shows "dev" and does not update itself.
 VERSION="dev"

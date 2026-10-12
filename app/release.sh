@@ -9,7 +9,7 @@
 # Run it from a clean checkout whose commits are pushed: the tag goes on the remote's HEAD.
 set -euo pipefail
 cd "$(dirname "$0")"
-REPO="${REPO:-MinLi999/CacheCue}"
+REPO="${REPO:-elvisli999/CacheCue}"
 
 swift test
 ./build-app.sh --release "${1:-}"

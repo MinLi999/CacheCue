@@ -72,7 +72,7 @@ The lessons are written in all 20 languages the app speaks, and follow the langu
 
 Requires macOS 13 or later.
 
-1. Download [CacheCue.dmg](https://github.com/MinLi999/CacheCue/releases/latest/download/CacheCue.dmg) (or pick a version from [Releases](https://github.com/MinLi999/CacheCue/releases)) and drag CacheCue to Applications. It is signed and notarized, and runs on Apple silicon and Intel.
+1. Download [CacheCue.dmg](https://github.com/elvisli999/CacheCue/releases/latest/download/CacheCue.dmg) (or pick a version from [Releases](https://github.com/elvisli999/CacheCue/releases)) and drag CacheCue to Applications. It is signed and notarized, and runs on Apple silicon and Intel.
 2. Open it. It lives in the menu bar and has no Dock icon.
 3. Click the menu bar item, then **Set up** on the "Terminal status line is not set up" card.
 
@@ -95,7 +95,7 @@ From left to right: this request's cache hit rate, the session's, time until the
 The desktop app does not run status line commands. To get the same band above the prompt there, and to have desktop sessions show up in the menu bar, install the plugin from a terminal session:
 
 ```text
-/plugin install cachecue --marketplace MinLi999/CacheCue
+/plugin install cachecue --marketplace elvisli999/CacheCue
 ```
 
 The plugin is built on Claude Code's function-hooks API, which is in early access and may change between releases without notice. In the desktop app it only sees a turn's totals when the turn ends, so there its hit rate is per turn, not per request, and its countdown assumes the one-hour cache.
@@ -112,7 +112,7 @@ The lifebuoy button in the popover opens support: write to the developer, attach
 ## What it reads, and what it does not
 
 - **The network is used for two things, and never for your sessions.**
-  - *Updates*, which you can turn off: once a day [Sparkle](https://sparkle-project.org) reads this repository's update feed from GitHub, and downloads a new version when you choose to install it.
+  - *Updates*, which you can turn off: once a day [Sparkle](https://sparkle-project.org) asks `elvisli.ca/cachecue/appcast.xml` (the author's site, which only redirects to this repository's latest release on GitHub) whether there is a newer version, and downloads it from GitHub when you choose to install it.
   - *Support tickets*, only when you open the support page yourself: sending a ticket sends your email, what you wrote, an optional attachment and a random ID for this Mac (so "My Tickets" can find it again) to the developer's support server.
 
   The status line command and the plugin never touch the network.

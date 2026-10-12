@@ -199,7 +199,8 @@ enum Render {
                 .environment(\.colorScheme, dark ? .dark : .light)
             let renderer = ImageRenderer(content: popover)
             renderer.scale = 2
-            save(renderer.nsImage, to: folder.appendingPathComponent("popover-\(suffix).png"))
+            // Twice the points, so the picture stays sharp on a high-density screen.
+            save(renderer.nsImage, to: folder.appendingPathComponent("popover-\(suffix).png"), scale: 2)
 
             // The label on a strip the shade of a menu bar.
             let label = MenuBarLabel.image(for: summary)

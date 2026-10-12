@@ -19,7 +19,7 @@ public struct Lesson: Identifiable, Equatable {
 public enum Guide {
     private static let costs = URL(string: "https://code.claude.com/docs/en/costs")!
     private static let caching = URL(string: "https://code.claude.com/docs/en/prompt-caching")!
-    private static let project = URL(string: "https://github.com/MinLi999/CacheCue")!
+    private static let project = URL(string: "https://github.com/elvisli999/CacheCue")!
 
     private static let order: [(id: String, source: URL)] = [
         ("context-cost", costs), ("cache-clock", caching), ("compact-cost", caching), ("best-moment", caching),
