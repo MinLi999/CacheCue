@@ -129,8 +129,8 @@ public enum SupportAPI {
     public static let baseURL = URL(string: "https://support-api.elvisli.ca")!
     /// The developer's tip page. The app only hands it to the browser; it never fetches it.
     public static let coffeeURL = URL(string: "https://ko-fi.com/elvislica")!
-    /// The developer's own site, and where the source is. Handed to the browser, like the tip page.
-    public static let websiteURL = URL(string: "https://elvisli.ca")!
+    /// CacheCue's page on the developer's site, and where the source is. Handed to the browser, like the tip page.
+    public static let websiteURL = URL(string: "https://elvisli.ca/cachecue")!
     public static let sourceURL = URL(string: "https://github.com/elvisli999/CacheCue")!
     public static let appID = "CacheCue"
     public static let maxAttachmentBytes = 5 * 1024 * 1024

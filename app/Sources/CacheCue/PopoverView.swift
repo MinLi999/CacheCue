@@ -1132,7 +1132,7 @@ struct AboutPage: View {
             }
             Card {
                 VStack(spacing: 0) {
-                    link("globe", strings.aboutWebsite, detail: "elvisli.ca") { NSWorkspace.shared.open(SupportAPI.websiteURL) }
+                    link("globe", strings.aboutWebsite, detail: "elvisli.ca/cachecue") { NSWorkspace.shared.open(SupportAPI.websiteURL) }
                     Divider().padding(.vertical, 8)
                     link("chevron.left.forwardslash.chevron.right", strings.aboutSource, detail: "github.com/elvisli999/CacheCue") {
                         NSWorkspace.shared.open(SupportAPI.sourceURL)
