@@ -4,6 +4,8 @@
 
 **Know when to `/compact`.** A macOS menu bar app for [Claude Code](https://code.claude.com) that watches your prompt cache, your context size and your rate limits, and tells you whether now is a good moment to compact, and why.
 
+**Official website:** [elvisli.ca/cachecue](https://elvisli.ca/cachecue) · **Download:** [CacheCue.dmg](https://github.com/elvisli999/CacheCue/releases/latest/download/CacheCue.dmg) (latest release, signed and notarized)
+
 <p>
   <img src="docs/screenshots/popover-en-light.png" width="300" alt="The CacheCue popover in light mode: a card advising to compact before the cache expires, the 5-hour and 7-day limits, and the current session's cache countdown, hit rates, cost and context size">
   <img src="docs/screenshots/popover-en-dark.png" width="300" alt="The same popover in dark mode">
@@ -11,7 +13,7 @@
 
 In the menu bar it is its crescent, two small gauges and a countdown:
 
-<img src="docs/screenshots/label-en-dark.png" width="272" alt="Menu bar item: a crescent with an amber dot in its hollow, a 5h gauge, a 7d gauge, a dot and a clock reading 08:18">
+<img src="docs/screenshots/label-en-dark.png" width="272" alt="Menu bar item: a crescent with an amber dot in its hollow, a 5h gauge, a 7d gauge, a dot and a clock reading 08:12">
 
 - **5h / 7d**: how much of each rate-limit window is used
 - **the clock**: time left before the current session's prompt cache expires (`live` while a turn is running, `exp` once it has expired)
