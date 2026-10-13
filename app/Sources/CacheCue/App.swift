@@ -7,10 +7,19 @@ import CacheCueCore
 @MainActor
 final class UsageModel: ObservableObject {
     @Published private(set) var summary: Summary
+    /// The last seven days of what the cache cost, for the ledger card.
+    @Published private(set) var week = Week()
     private let directory = SnapshotStore.defaultDirectory
     private let defaults = UserDefaults.standard
     private var snapshots: [Snapshot] = []
+    private var states: [String: SessionState] = [:]
     private var ticks = 0
+
+    /// Limit readings and daily totals, kept on this Mac; written at most once a minute.
+    private let historyURL = HistoryStore.defaultURL
+    private var history: History
+    private var savedHistory: History
+    private var lastSave = Date.distantPast
 
     /// The session kept in view by choice; nil follows whichever did something last.
     private var pinned: String? {
@@ -20,19 +29,45 @@ final class UsageModel: ObservableObject {
 
     func pin(_ sessionID: String?) {
         pinned = sessionID
-        summary = Summary(snapshots: snapshots, now: Date(), pinned: sessionID)
+        summary = summarize(Date())
+    }
+
+    /// The sessions the person lets the app compact before their cache goes cold.
+    @Published private(set) var autoCompacted = Preferences.autoCompactSessions
+
+    func setAutoCompact(_ sessionID: String, _ isOn: Bool) {
+        if isOn { autoCompacted.insert(sessionID) } else { autoCompacted.remove(sessionID) }
+        defaults.set(autoCompacted.sorted(), forKey: Preferences.autoCompactKey)
+    }
+
+    private func summarize(_ now: Date) -> Summary {
+        var summary = Summary(
+            snapshots: snapshots, now: now, pinned: pinned, states: states, followsUrgent: Preferences.followsUrgent)
+        summary.setPace(from: history, now: now)
+        summary.setTurnShares(from: history)
+        return summary
     }
 
     init() {
         AppTheme.stored(UserDefaults.standard.string(forKey: Preferences.themeKey)).apply()
         SnapshotStore.prune(in: directory, now: Date())
         // A plugin this app installed moves with the app: an update brings its copy along.
-        PluginSetup.refresh(
-            bundled: PluginSetup.bundled(resources: Bundle.main.resourceURL),
-            home: FileManager.default.homeDirectoryForCurrentUser)
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        PluginSetup.refresh(bundled: PluginSetup.bundled(resources: Bundle.main.resourceURL), home: home)
+        // The desktop app's sessions load the copy Claude Code installed, not that folder: after
+        // an update of this app, Claude Code is asked once to bring its copy along.
+        DispatchQueue.global(qos: .utility).async {
+            PluginSetup.updateIfBehind(home: home, claude: PluginSetup.claudeExecutable(home: home))
+        }
         snapshots = SnapshotStore.load(from: directory)
-        summary = Summary(
-            snapshots: snapshots, now: Date(), pinned: UserDefaults.standard.string(forKey: Preferences.pinnedSessionKey))
+        states = SnapshotStore.loadStates(from: directory)
+        history = HistoryStore.load(from: historyURL)
+        savedHistory = history
+        summary = Summary(snapshots: [], now: Date())
+        summary = summarize(Date())
+        week = history.week(now: Date())
+        Notifier.shared.start()
+        Notifier.shared.showSession = { [weak self] id in self?.pin(id) }
         // .common keeps the countdown moving while the popover is open.
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
@@ -43,13 +78,77 @@ final class UsageModel: ObservableObject {
     /// Every second the countdowns move; every other second the files are read again.
     private func refresh() {
         ticks += 1
-        if ticks % 2 == 0 {
+        let now = Date()
+        let isReading = ticks % 2 == 0
+        if isReading {
             snapshots = SnapshotStore.load(from: directory)
+            states = SnapshotStore.loadStates(from: directory)
+            history.record(snapshots: snapshots, states: states, fiveHour: summary.fiveHour, now: now)
         }
-        summary = Summary(snapshots: snapshots, now: Date(), pinned: pinned)
+        summary = summarize(now)
         // A pinned session that has gone quiet lets go by itself.
         if pinned != nil && !summary.isPinned {
             pinned = nil
+        }
+        if isReading {
+            history.sample(limits: summary.limits, now: now)
+            week = history.week(now: now)
+            if history != savedHistory, now.timeIntervalSince(lastSave) >= 60 {
+                try? HistoryStore.save(history, to: historyURL)
+                savedHistory = history
+                lastSave = now
+            }
+        }
+        announce(now)
+        if isReading { compactWhereAsked(now) }
+    }
+
+    /// Leaves a request for each session whose cache is about to go cold, of those the
+    /// person turned automatic compacting on for; the plugin in the session carries it out.
+    private func compactWhereAsked(_ now: Date) {
+        // A session no longer on record is no longer asked about.
+        let known = Set(snapshots.map(\.sessionID))
+        if !autoCompacted.isSubset(of: known) {
+            autoCompacted.formIntersection(known)
+            defaults.set(autoCompacted.sorted(), forKey: Preferences.autoCompactKey)
+        }
+        SnapshotStore.clearRequests(
+            in: directory, answered: Set(states.values.flatMap { [$0.compact?.request, $0.compactFailed?.request] }.compactMap { $0 }),
+            now: now, life: AutoCompact.requestLife)
+        guard !autoCompacted.isEmpty else { return }
+        let stored = defaults.dictionary(forKey: Preferences.autoCompactLedgerKey) as? [String: Double] ?? [:]
+        var ledger = stored
+        let due = AutoCompact.due(sessions: summary.every, enabled: autoCompacted, ledger: &ledger)
+        if ledger != stored {
+            defaults.set(ledger, forKey: Preferences.autoCompactLedgerKey)
+        }
+        for session in due {
+            try? SnapshotStore.write(
+                SessionRequest(
+                    sessionID: session.id, action: SessionRequest.compact, id: UUID().uuidString,
+                    at: now.timeIntervalSince1970),
+                in: directory)
+        }
+    }
+
+    /// Posts what is due, of the notifications the person has turned on.
+    private func announce(_ now: Date) {
+        let isCacheOn = defaults.bool(forKey: Preferences.alertCacheKey)
+        let isQuotaOn = defaults.bool(forKey: Preferences.alertQuotaKey)
+        guard isCacheOn || isQuotaOn else { return }
+        let stored = defaults.data(forKey: Preferences.alertLedgerKey)
+            .flatMap { try? JSONDecoder().decode(AlertLedger.self, from: $0) } ?? AlertLedger()
+        var ledger = stored
+        let due = Alerts.due(
+            sessions: summary.every, limits: summary.limits, now: now, lead: Preferences.alertLead,
+            cache: isCacheOn, quota: isQuotaOn, ledger: &ledger)
+        if ledger != stored {
+            defaults.set(try? JSONEncoder().encode(ledger), forKey: Preferences.alertLedgerKey)
+        }
+        guard !due.isEmpty else { return }
+        let strings = Strings.of(Language.resolve(choice: defaults.string(forKey: Preferences.languageKey)))
+        for alert in due {
+            Notifier.shared.post(alert, strings: strings)
         }
     }
 }
@@ -62,11 +161,15 @@ struct UsageBarApp: App {
     var body: some Scene {
         MenuBarExtra {
             PopoverView(
-                summary: model.summary, updater: updater, pin: model.pin, support: support,
+                summary: model.summary, week: model.week, updater: updater, pin: model.pin,
+                autoCompacted: model.autoCompacted, setAutoCompact: model.setAutoCompact, support: support,
                 isShowingSupport: support.isPresented, unreadReplies: support.unread.count)
                 .background(Material.regular)
         } label: {
-            Image(nsImage: MenuBarLabel.image(for: model.summary))
+            Image(nsImage: MenuBarLabel.image(for: model.summary, marksWaiting: Preferences.showsWaitingMark))
+                .accessibilityLabel(MenuBarLabel.spoken(
+                    for: model.summary,
+                    strings: .of(Language.resolve(choice: UserDefaults.standard.string(forKey: Preferences.languageKey)))))
         }
         .menuBarExtraStyle(.window)
     }
@@ -89,17 +192,36 @@ enum Entry {
             if let snapshot = StatusLine.snapshot(input: input, now: Date(), previous: previous), snapshot != previous {
                 try? SnapshotStore.write(snapshot, in: directory)
             }
+            // `--then <command>`: a status line that was there before this app is handed the
+            // same input, and what it prints is the terminal's status line.
+            if arguments.count >= 4, arguments[2] == "--then" {
+                exit(StatusLineChain.run(arguments[3], input: input))
+            }
             return
         }
-        // `setup-statusline [--force]` does what the popover's Connect button for terminal sessions does.
+        // `setup-statusline [--keep | --force | --remove]` does what the popover's Connect button
+        // for terminal sessions does; `--remove` takes this app's command out again.
         if arguments.dropFirst().first == "setup-statusline" {
-            if case .other(let command) = StatusLineSetup.state(), !arguments.contains("--force") {
-                print("Another status line is configured:\n  \(command)\nRun again with --force to replace it. CacheCue shows nothing in its place.")
-                exit(1)
-            }
+            let path = StatusLineSetup.defaultSettingsURL.path
             do {
-                try StatusLineSetup.install(executable: Bundle.main.executablePath ?? arguments[0])
-                print("Terminal sessions connected through \(StatusLineSetup.defaultSettingsURL.path). Nothing is shown in the terminal; the figures are in the menu bar.")
+                if arguments.contains("--remove") {
+                    try StatusLineSetup.remove()
+                    print("CacheCue's command is out of \(path).")
+                    return
+                }
+                var kept: String?
+                if case .other(let command) = StatusLineSetup.state() {
+                    if arguments.contains("--keep") {
+                        kept = command
+                    } else if !arguments.contains("--force") {
+                        print("Another status line is configured:\n  \(command)\nRun again with --keep to keep it running behind CacheCue, or with --force to replace it.")
+                        exit(1)
+                    }
+                }
+                try StatusLineSetup.install(executable: Bundle.main.executablePath ?? arguments[0], keeping: kept)
+                print(kept == nil
+                    ? "Terminal sessions connected through \(path). Nothing is shown in the terminal; the figures are in the menu bar."
+                    : "Terminal sessions connected through \(path). Your status line still runs and shows as before.")
             } catch {
                 print("Setup failed: \(error.localizedDescription)")
                 exit(1)
@@ -107,7 +229,20 @@ enum Entry {
             return
         }
 
-        let summary = Summary(snapshots: SnapshotStore.load(from: SnapshotStore.defaultDirectory), now: Date())
+        let directory = SnapshotStore.defaultDirectory
+        let history = HistoryStore.load(from: HistoryStore.defaultURL)
+        var summary = Summary(
+            snapshots: SnapshotStore.load(from: directory), now: Date(),
+            states: SnapshotStore.loadStates(from: directory), followsUrgent: Preferences.followsUrgent)
+        summary.setPace(from: history, now: Date())
+        summary.setTurnShares(from: history)
+
+        // `status --json` prints the figures for a script: a shortcut, a launcher, a dashboard.
+        if arguments.dropFirst().first == "status" {
+            FileHandle.standardOutput.write(summary.json(now: Date()))
+            FileHandle.standardOutput.write(Data("\n".utf8))
+            return
+        }
 
         func value(after flag: String) -> String? {
             arguments.firstIndex(of: flag).flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
@@ -147,17 +282,28 @@ enum Entry {
             // `support`, `tickets` and `ticket` draw the support pages with sample tickets, not real
             // ones; `reply` draws the first page as it looks when support has answered.
             let name = value(after: "--page")
-            let support = ["support", "tickets", "ticket", "reply"].contains(name ?? "") ? SupportModel.sample(name ?? "") : nil
+            let isSupportPage = ["support", "tickets", "ticket", "reply"].contains(name ?? "")
+            // The About page has the way into support, so it is drawn with a support model too.
+            let support = isSupportPage ? SupportModel.sample(name ?? "") : name == "about" ? SupportModel() : nil
             // `setup` draws the first page of a Mac where nothing feeds the app yet.
-            let page: Page = support != nil || name == "setup" ? .dashboard : name.map { $0 == "guide" ? .guide : .lesson($0) } ?? .dashboard
+            // `kept` draws a terminal connected with an earlier status line still running behind.
+            let isSetupPage = name == "setup" || name == "kept"
+            let page: Page = isSupportPage || isSetupPage ? .dashboard
+                : name.map { $0 == "guide" ? .guide : $0 == "about" ? .about : $0 == "settings" ? .settings : .lesson($0) } ?? .dashboard
             Render.write(
                 summary, to: URL(fileURLWithPath: folder), dark: arguments.contains("--dark"), language: language,
-                page: page, support: support, name: name)
+                page: page, support: support, name: name, week: history.week(now: Date()),
+                // `--auto-compact` draws the session in view with its automatic compacting turned on.
+                autoCompacted: arguments.contains("--auto-compact") ? Set(summary.current.map { [$0.id] } ?? []) : [],
+                // `--unread` draws a reply from support waiting; `--contrast` the system's "Increase
+                // contrast"; `--no-color` its "Differentiate without colour".
+                unread: arguments.contains("--unread") || name == "reply" ? 1 : 0,
+                contrast: arguments.contains("--contrast"), marksLevels: arguments.contains("--no-color"))
             return
         }
         // Anything else on the command line is a mistake, not a reason to open the app.
         if arguments.count > 1 {
-            print("usage: CacheCue [statusline | setup-statusline [--force] | --dump | --render <folder> | --render-icon <file.png> | --login-status]")
+            print("usage: CacheCue [statusline [--then <command>] | setup-statusline [--keep | --force | --remove] | status --json | --dump | --render <folder> | --render-icon <file.png> | --login-status]")
             exit(64)
         }
         // One menu bar item is enough: a second launch leaves the first in place.
@@ -175,9 +321,14 @@ enum Entry {
 enum Render {
     static func write(
         _ summary: Summary, to folder: URL, dark: Bool, language: Language, page: Page, support: SupportModel? = nil,
-        name: String? = nil
+        name: String? = nil, week: Week = Week(), autoCompacted: Set<String> = [], unread: Int = 0,
+        contrast: Bool = false, marksLevels: Bool = false
     ) {
-        let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)!
+        Palette.forcesStrong = contrast
+        let appearance = NSAppearance(
+            named: contrast
+                ? (dark ? .accessibilityHighContrastDarkAqua : .accessibilityHighContrastAqua)
+                : (dark ? .darkAqua : .aqua))!
         NSApplication.shared.appearance = appearance
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         var suffix = "\(language.rawValue)-\(dark ? "dark" : "light")"
@@ -185,15 +336,22 @@ enum Render {
         case .dashboard: break
         case .guide: suffix = "guide-" + suffix
         case .lesson(let id): suffix = "lesson-\(id)-" + suffix
+        case .about: suffix = "about-" + suffix
+        case .settings: suffix = "settings-" + suffix
         }
-        if support != nil || name == "setup", let name { suffix = "\(name)-" + suffix }
+        if page == .dashboard, support != nil || name == "setup" || name == "kept", let name { suffix = "\(name)-" + suffix }
+        if unread > 0, name != "reply" { suffix = "unread-" + suffix }
+        if contrast { suffix += "-contrast" }
+        if marksLevels { suffix += "-nocolor" }
 
         appearance.performAsCurrentDrawingAppearance {
             let backdrop = dark ? Color(white: 0.16) : Color(white: 0.93)
             let popover = PopoverView(
-                summary: summary, isPreview: true, previewLanguage: language, initialPage: page, support: support,
-                isShowingSupport: support?.isPresented ?? false, unreadReplies: name == "reply" ? 1 : 0,
-                previewsSetup: name == "setup")
+                summary: summary, week: week, isPreview: true, previewLanguage: language, initialPage: page,
+                autoCompacted: autoCompacted, support: support,
+                isShowingSupport: support?.isPresented ?? false, unreadReplies: unread,
+                previewsSetup: name == "setup", previewsKept: name == "kept")
+                .environment(\.forcesLevelMarks, marksLevels)
                 .background(backdrop)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(16)
@@ -205,7 +363,7 @@ enum Render {
             save(renderer.nsImage, to: folder.appendingPathComponent("popover-\(suffix).png"), scale: 2)
 
             // The label on a strip the shade of a menu bar.
-            let label = MenuBarLabel.image(for: summary)
+            let label = MenuBarLabel.image(for: summary, marksWaiting: true)
             let strip = NSImage(size: NSSize(width: label.size.width + 24, height: 24), flipped: false) { rect in
                 (dark ? NSColor(white: 0.14, alpha: 1) : NSColor(white: 0.90, alpha: 1)).setFill()
                 rect.fill()

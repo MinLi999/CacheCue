@@ -300,7 +300,7 @@ struct SupportView: View {
             tabButton(strings.myTickets, .tickets)
         }
         .padding(3)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color.secondary.opacity(0.10)))
+        .background(RoundedRectangle(cornerRadius: 9).fill(Color.secondaryText.opacity(0.10)))
         .padding(.horizontal, 12)
         .padding(.top, 12)
     }
@@ -311,9 +311,9 @@ struct SupportView: View {
             if tab == .tickets, model.tickets == nil { model.loadTickets() }
         } label: {
             Text(title).font(.rounded(11, .semibold)).lineLimit(1).minimumScaleFactor(0.8)
-                .foregroundColor(model.tab == tab ? .primary : .secondary)
+                .foregroundColor(model.tab == tab ? .primary : .secondaryText)
                 .frame(maxWidth: .infinity).padding(.vertical, 5)
-                .background(RoundedRectangle(cornerRadius: 7).fill(model.tab == tab ? Color.primary.opacity(0.12) : .clear))
+                .background(RoundedRectangle(cornerRadius: 7).fill(model.tab == tab ? Color.primary.opacity(0.09) : .clear))
         }
         .buttonStyle(.plain)
     }
@@ -327,7 +327,7 @@ struct SupportView: View {
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(strings.supportIntro).font(.rounded(10)).foregroundColor(.secondary).lineSpacing(2)
+            Text(strings.supportIntro).font(.rounded(10)).foregroundColor(.secondaryText).lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
 
             fieldLabel(strings.emailAddress)
@@ -358,30 +358,30 @@ struct SupportView: View {
                     }
                     .foregroundColor(.brandAccent)
                     .padding(.horizontal, 9).padding(.vertical, 4)
-                    .background(Capsule().fill(Color.brandAccent.opacity(0.12)))
+                    .background(Capsule().fill(Color.brandAccent.opacity(0.09)))
                 }
                 .buttonStyle(.plain)
                 Text(model.attachment?.filename ?? strings.noFileSelected)
-                    .font(.rounded(10)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                    .font(.rounded(10)).foregroundColor(.secondaryText).lineLimit(1).truncationMode(.middle)
                 if model.attachment != nil {
                     Button {
                         model.attachment = nil
                     } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundColor(.secondary)
+                        Image(systemName: "xmark.circle.fill").font(.system(size: 11)).foregroundColor(.secondaryText)
                     }
                     .buttonStyle(.plain)
                 }
                 Spacer(minLength: 0)
             }
             if model.isTooLarge {
-                Text(strings.fileTooLarge).font(.rounded(9)).foregroundColor(.tone(.crit))
+                Text(strings.fileTooLarge).font(.rounded(10)).foregroundColor(.tone(.crit))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             // What pressing Submit sends, said where it is pressed.
             HStack(alignment: .top, spacing: 6) {
-                Image(systemName: "lock.shield").font(.system(size: 10)).foregroundColor(.secondary)
-                Text(strings.supportPrivacy + " " + strings.supportChecksReplies).font(.rounded(9)).foregroundColor(.secondary)
+                Image(systemName: "lock.shield").font(.system(size: 10)).foregroundColor(.secondaryText)
+                Text(strings.supportPrivacy + " " + strings.supportChecksReplies).font(.rounded(10)).foregroundColor(.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -414,7 +414,7 @@ struct SupportView: View {
     }
 
     private func fieldLabel(_ text: String) -> some View {
-        Text(text).font(.rounded(10, .semibold)).foregroundColor(.secondary)
+        Text(text).font(.rounded(10, .semibold)).foregroundColor(.secondaryText)
     }
 
     private func field<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
@@ -431,8 +431,8 @@ struct SupportView: View {
         case "open": return (strings.statusOpen, .brandAccent)
         case "replied": return (strings.statusReplied, .tone(.warn))
         case "resolved": return (strings.statusResolved, .tone(.ok))
-        case "closed": return (strings.statusClosed, .secondary)
-        default: return (ticket.status, .secondary)
+        case "closed": return (strings.statusClosed, .secondaryText)
+        default: return (ticket.status, .secondaryText)
         }
     }
 
@@ -442,7 +442,7 @@ struct SupportView: View {
             ProgressView().controlSize(.small).frame(maxWidth: .infinity).padding(.vertical, 28)
         } else if model.hasLoadFailed {
             VStack(spacing: 8) {
-                Text(failure).font(.rounded(11)).foregroundColor(.secondary).multilineTextAlignment(.center)
+                Text(failure).font(.rounded(11)).foregroundColor(.secondaryText).multilineTextAlignment(.center)
                 Button(strings.retry, action: retry).buttonStyle(.plain).font(.rounded(11, .bold)).foregroundColor(.brandAccent)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 24)
@@ -453,7 +453,7 @@ struct SupportView: View {
         VStack(spacing: 8) {
             if let tickets = model.tickets, !model.isLoading {
                 if tickets.isEmpty {
-                    Text(strings.noTickets).font(.rounded(11)).foregroundColor(.secondary)
+                    Text(strings.noTickets).font(.rounded(11)).foregroundColor(.secondaryText)
                         .frame(maxWidth: .infinity).padding(.vertical, 28)
                 }
                 ForEach(tickets) { ticket in
@@ -465,10 +465,10 @@ struct SupportView: View {
                                 Text(ticket.description).font(.rounded(11, .semibold)).foregroundColor(.primary)
                                     .lineLimit(2).multilineTextAlignment(.leading)
                                 HStack {
-                                    Text(ticket.createdAt).font(.rounded(9)).monospacedDigit().foregroundColor(.secondary)
+                                    Text(ticket.createdAt).font(.rounded(10)).monospacedDigit().foregroundColor(.secondaryText)
                                     Spacer()
                                     if model.unread.contains(ticket.id) {
-                                        Circle().fill(Color.orange).frame(width: 7, height: 7)
+                                        Circle().fill(Color.beacon).frame(width: 7, height: 7)
                                             .help(strings.supportNewReply)
                                     }
                                     Pill(text: status(ticket).text, tint: status(ticket).tint)
@@ -514,7 +514,7 @@ struct SupportView: View {
                     Image(systemName: "chevron.backward").font(.system(size: 9, weight: .bold))
                     Text(strings.myTickets).font(.rounded(11, .semibold))
                 }
-                .foregroundColor(.secondary)
+                .foregroundColor(.secondaryText)
             }
             .buttonStyle(.plain)
 
@@ -522,32 +522,32 @@ struct SupportView: View {
                 Card {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text(strings.originalTicket.uppercased()).font(.rounded(8, .bold)).foregroundColor(.secondary)
+                            Text(strings.originalTicket.uppercased()).font(.rounded(9, .bold)).foregroundColor(.secondaryText)
                             Spacer()
                             Pill(text: status(thread.ticket).text, tint: status(thread.ticket).tint)
                         }
                         Text(thread.ticket.description).font(.rounded(11)).fixedSize(horizontal: false, vertical: true)
                         attachmentLink(thread.ticket.attachmentURL)
-                        Text(thread.ticket.createdAt).font(.rounded(9)).monospacedDigit().foregroundColor(.secondary)
+                        Text(thread.ticket.createdAt).font(.rounded(10)).monospacedDigit().foregroundColor(.secondaryText)
                     }
                 }
 
-                Text(strings.conversationHistory).font(.rounded(10, .semibold)).foregroundColor(.secondary)
+                Text(strings.conversationHistory).font(.rounded(10, .semibold)).foregroundColor(.secondaryText)
                 if thread.replies.isEmpty {
-                    Text(strings.noReplies).font(.rounded(11)).foregroundColor(.secondary)
+                    Text(strings.noReplies).font(.rounded(11)).foregroundColor(.secondaryText)
                 }
                 ForEach(thread.replies) { reply in
                     VStack(alignment: reply.isFromSupport ? .leading : .trailing, spacing: 3) {
                         Text(reply.isFromSupport ? strings.support : strings.you)
-                            .font(.rounded(9, .bold)).foregroundColor(reply.isFromSupport ? .brandAccent : .secondary)
+                            .font(.rounded(10, .bold)).foregroundColor(reply.isFromSupport ? .brandAccent : .secondaryText)
                         VStack(alignment: .leading, spacing: 5) {
                             Text(reply.message).font(.rounded(11)).fixedSize(horizontal: false, vertical: true)
                             attachmentLink(reply.attachmentURL)
                         }
                         .padding(.horizontal, 10).padding(.vertical, 7)
                         .background(RoundedRectangle(cornerRadius: 10)
-                            .fill(reply.isFromSupport ? Color.brandAccent.opacity(0.10) : Color.secondary.opacity(0.14)))
-                        Text(reply.createdAt).font(.rounded(8)).monospacedDigit().foregroundColor(.secondary)
+                            .fill(reply.isFromSupport ? Color.brandAccent.opacity(0.10) : Color.secondaryText.opacity(0.14)))
+                        Text(reply.createdAt).font(.rounded(9)).monospacedDigit().foregroundColor(.secondaryText)
                     }
                     .frame(maxWidth: .infinity, alignment: reply.isFromSupport ? .leading : .trailing)
                 }
@@ -556,7 +556,7 @@ struct SupportView: View {
                     HStack(spacing: 8) {
                         field {
                             if isPreview {
-                                Text(strings.typeReply).font(.rounded(11)).foregroundColor(.secondary)
+                                Text(strings.typeReply).font(.rounded(11)).foregroundColor(.secondaryText)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             } else {
                                 TextField(strings.typeReply, text: $model.reply).textFieldStyle(.plain).font(.rounded(11))
@@ -575,7 +575,7 @@ struct SupportView: View {
                     }
                 } else {
                     Text(thread.ticket.status.lowercased() == "closed" ? strings.ticketClosed : strings.ticketResolved)
-                        .font(.rounded(10)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .font(.rounded(10)).foregroundColor(.secondaryText).fixedSize(horizontal: false, vertical: true)
                 }
             } else {
                 loadState(retry: model.loadThread, failure: strings.loadDetailsFailed)

@@ -7,6 +7,7 @@ import CacheCueCore
 ///
 /// The crescent is the app's mark, drawn in the menu bar's own text colour.
 /// A dot before the clock says the popover has something to act on: compact now.
+/// A dot in the crescent's hollow says some session is waiting on the person.
 ///
 /// Drawn by a handler, not baked, so label colours follow the menu bar's own appearance
 /// (which goes by the wallpaper, not by the system's light or dark mode).
@@ -22,11 +23,38 @@ enum MenuBarLabel {
         return NSFont(descriptor: rounded, size: size) ?? base
     }
 
-    static func image(for summary: Summary) -> NSImage {
+    /// The same as the picture, in words, for someone who has the screen read to them.
+    static func spoken(for summary: Summary, strings: Strings) -> String {
+        var parts = ["CacheCue"]
+        let limits: [(String, LimitView?)] = summary.showsSpendLimit
+            ? [(strings.spendLimitTitle, summary.spendLimit)]
+            : [(strings.fiveHourTitle, summary.fiveHour), (strings.sevenDayTitle, summary.sevenDay)]
+        for (title, limit) in limits {
+            if let limit { parts.append("\(title) \(limit.percent)%") }
+        }
+        if let current = summary.current {
+            switch current.cache {
+            case .unknown: break
+            case .active: parts.append(strings.cacheActive)
+            case .expires: parts.append("\(strings.cacheExpiresCaption) \(current.cache.shortText)")
+            case .expired: parts.append(strings.cacheExpired)
+            }
+            if current.advice.isActionable { parts.append(current.advice.headline(strings)) }
+        }
+        if summary.isAnyWaiting { parts.append(strings.waitingForYou) }
+        return parts.joined(separator: ", ")
+    }
+
+    static func image(for summary: Summary, marksWaiting: Bool = false) -> NSImage {
+        let isWaiting = marksWaiting && summary.isAnyWaiting
         let labelFont = font(10.5)
         let timeFont = font(11, monospacedDigits: true)
-        let gauges: [(text: String, limit: LimitView?)] = [("5h", summary.fiveHour), ("7d", summary.sevenDay)]
+        // An account with a gateway's spend limit and no windows gets one gauge for that.
+        let gauges: [(text: String, limit: LimitView?)] = summary.showsSpendLimit
+            ? [("$", summary.spendLimit)]
+            : [("5h", summary.fiveHour), ("7d", summary.sevenDay)]
         let cache = summary.current?.cache ?? .unknown
+        let cacheLevel = summary.current?.cacheLevel ?? .plain
         let timeText = cache.shortText
 
         func width(_ text: String, _ font: NSFont) -> CGFloat {
@@ -71,6 +99,12 @@ enum MenuBarLabel {
                 NSBezierPath(ovalIn: moon.offsetBy(dx: markSize * 0.24, dy: markSize * 0.24).insetBy(dx: 0.3, dy: 0.3)).fill()
                 context.cgContext.endTransparencyLayer()
                 context.restoreGraphicsState()
+                // It sits where the bite was taken, so the item keeps its width.
+                if isWaiting {
+                    let dot: CGFloat = 5.5
+                    (Palette.fill(.warn) ?? label).setFill()
+                    NSBezierPath(ovalIn: NSRect(x: moon.maxX - dot + 0.5, y: moon.maxY - dot + 0.5, width: dot, height: dot)).fill()
+                }
             }
             x += markSize + markGap
 
@@ -87,7 +121,7 @@ enum MenuBarLabel {
                 if let limit = gauge.limit, limit.used > 0 {
                     // Fills upward with what is used; never so thin it cannot be seen.
                     let filled = max(2, min(1, CGFloat(limit.used) / 100) * barSize.height)
-                    (Palette.tone(limit.level) ?? label).setFill()
+                    (Palette.fill(limit.level) ?? label).setFill()
                     NSBezierPath(
                         roundedRect: NSRect(x: track.minX, y: track.minY, width: track.width, height: filled),
                         xRadius: 1.5, yRadius: 1.5
@@ -97,13 +131,13 @@ enum MenuBarLabel {
             }
 
             if let advice, advice.isActionable {
-                (Palette.tone(advice.level) ?? label).setFill()
+                (Palette.fill(advice.level) ?? label).setFill()
                 NSBezierPath(ovalIn: NSRect(x: x, y: (height - cueSize) / 2, width: cueSize, height: cueSize)).fill()
             }
             x += cueSize + cueGap
 
             // A small clock face, then the countdown.
-            let tone = Palette.tone(cache.level) ?? label
+            let tone = Palette.tone(cacheLevel) ?? label
             let muted = cache == .unknown ? label.withAlphaComponent(0.45) : tone
             let face = NSRect(x: x + 0.5, y: (height - clockSize) / 2 + 0.5, width: clockSize - 1, height: clockSize - 1)
             let clock = NSBezierPath(ovalIn: face)

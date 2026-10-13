@@ -7,6 +7,39 @@ enum Preferences {
     static let languageKey = "appLanguage"
     /// The session the person chose to keep in view.
     static let pinnedSessionKey = "pinnedSession"
+    /// A session about to lose its cache comes before the latest one; on unless turned off.
+    static let followUrgentKey = "followUrgent"
+    /// The two kinds of notification, both off until the person turns them on.
+    static let alertCacheKey = "alertCache"
+    static let alertQuotaKey = "alertQuota"
+    /// Minutes before a one-hour cache runs out that the warning comes.
+    static let alertLeadKey = "alertLeadMinutes"
+    /// What has been announced already (`AlertLedger`, as JSON).
+    static let alertLedgerKey = "alertLedger"
+    /// A dot in the menu bar's crescent while a session waits on the person; on unless turned off.
+    static let waitingMarkKey = "waitingMark"
+    /// The ids of the sessions the person lets the app compact before their cache goes cold.
+    static let autoCompactKey = "autoCompactSessions"
+    /// By session: the cache expiry a compaction was last asked for.
+    static let autoCompactLedgerKey = "autoCompactLedger"
+
+    static var showsWaitingMark: Bool {
+        UserDefaults.standard.object(forKey: waitingMarkKey) as? Bool ?? true
+    }
+
+    static var autoCompactSessions: Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: autoCompactKey) ?? [])
+    }
+
+    static var followsUrgent: Bool {
+        UserDefaults.standard.object(forKey: followUrgentKey) as? Bool ?? true
+    }
+
+    static var alertLead: TimeInterval {
+        let minutes = UserDefaults.standard.integer(forKey: alertLeadKey)
+        let lead = TimeInterval(minutes * 60)
+        return Alerts.leads.contains(lead) ? lead : Alerts.defaultLead
+    }
 
     /// The release this build is, or `dev` for a build that is not one.
     static var version: String {

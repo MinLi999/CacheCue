@@ -32,7 +32,8 @@ public struct CompactAdvice: Equatable {
     public static let largeContext: Double = 100_000
     /// From this share of the window, auto-compact is close.
     public static let nearFullPercent: Double = 80
-    /// With this little time left on the cache, stepping away means losing it.
+    /// With this little time left on a one-hour cache, stepping away means losing it. A
+    /// shorter-lived cache gets a shorter window: see `CacheState.warnWindow`.
     public static let expiryWindow: TimeInterval = 600
 
     public var kind: Kind
@@ -40,10 +41,16 @@ public struct CompactAdvice: Equatable {
     public var contextPercent: Double?
     /// Seconds left on the cache, when it is counting down.
     public var expiresIn: TimeInterval?
+    /// How long this session's cache entries live.
+    public var lifetime: TimeInterval
 
-    public init(contextTokens: Double, contextPercent: Double?, cache: CacheState) {
+    public init(
+        contextTokens: Double, contextPercent: Double?, cache: CacheState,
+        lifetime: TimeInterval = CacheState.lifetime
+    ) {
         self.contextTokens = contextTokens
         self.contextPercent = contextPercent
+        self.lifetime = lifetime
         if case .expires(let left) = cache { expiresIn = left }
 
         if cache == .active {
@@ -54,7 +61,7 @@ public struct CompactAdvice: Equatable {
             kind = .notNeeded
         } else if cache == .expired {
             kind = .cold
-        } else if let expiresIn, expiresIn <= CompactAdvice.expiryWindow {
+        } else if let expiresIn, expiresIn <= CacheState.warnWindow(lifetime: lifetime) {
             kind = .beforeExpiry
         } else {
             kind = contextTokens >= CompactAdvice.largeContext ? .worthIt : .optional
@@ -71,7 +78,7 @@ public struct CompactAdvice: Equatable {
         case .running, .optional: return .plain
         case .notNeeded: return .ok
         case .worthIt: return .warn
-        case .beforeExpiry: return (expiresIn ?? 0) <= 120 ? .crit : .warn
+        case .beforeExpiry: return (expiresIn ?? 0) <= CacheState.critWindow(lifetime: lifetime) ? .crit : .warn
         case .cold, .nearFull: return .crit
         }
     }
@@ -104,6 +111,6 @@ public struct CompactAdvice: Equatable {
 
 extension SessionView {
     public var advice: CompactAdvice {
-        CompactAdvice(contextTokens: contextTokens, contextPercent: contextPercent, cache: cache)
+        CompactAdvice(contextTokens: contextTokens, contextPercent: contextPercent, cache: cache, lifetime: lifetime)
     }
 }

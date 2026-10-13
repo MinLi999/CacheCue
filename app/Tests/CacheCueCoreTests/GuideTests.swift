@@ -66,6 +66,10 @@ final class GuideTests: XCTestCase {
             }
             // The figures the lessons rest on.
             XCTAssertTrue(lessons["cache-clock"]!.contains("20"), name)
+            // The multiples by model, and the setting that picks the cache's lifetime.
+            for term in ["40", "80", "Opus 5.5", "Fable 5.1", "promptCacheTtl"] {
+                XCTAssertTrue(lessons["cache-clock"]!.contains(term), "\(name) \(term)")
+            }
             XCTAssertTrue(lessons["best-moment"]!.contains("/compact"), name)
             let large = lessons["best-moment"]!
             XCTAssertTrue(
@@ -92,5 +96,21 @@ final class GuideTests: XCTestCase {
         XCTAssertTrue(Guide.lessons(.en).first { $0.id == "best-moment" }!.points.joined().contains("100k tokens"))
         XCTAssertTrue(Guide.lessons(.zhHans).first { $0.id == "best-moment" }!.points.joined().contains("10 万 token"))
         XCTAssertTrue(Guide.lessons(.en).first { $0.id == "reading-cachecue" }!.points.joined().contains("70% and red at 90%"))
+        // The last lesson says when a session is compacted for the person, in every language.
+        for language in Language.allCases {
+            let glance = Guide.lessons(language).first { $0.id == "reading-cachecue" }!.points.joined(separator: " ")
+            XCTAssertTrue(glance.contains("/compact"), language.rawValue)
+            XCTAssertTrue(glance.contains("\(Int(AutoCompact.lead / 60))"), language.rawValue)
+            XCTAssertTrue(glance.contains("CacheCue"), language.rawValue)
+        }
+        // The multiples lesson 2 gives are the ones the advice card works out.
+        let clock = Guide.lessons(.en).first { $0.id == "cache-clock" }!.points.joined()
+        func ratio(_ model: String) -> String {
+            ColdCost(tokens: 1, isEstimate: false, modelID: model, lifetime: 3600).ratioText
+        }
+        XCTAssertTrue(clock.contains("\(ratio("claude-opus-5-5")) times on Opus 5.5 and Sonnet 5.5"))
+        XCTAssertEqual(ratio("claude-sonnet-5-5"), ratio("claude-opus-5-5"))
+        XCTAssertTrue(clock.contains("\(ratio("claude-fable-5-1")) times on Fable 5.1"))
+        XCTAssertTrue(clock.contains("at least \(ratio("claude-opus-5")) times"))
     }
 }

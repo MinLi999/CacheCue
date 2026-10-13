@@ -27,11 +27,20 @@ public enum StatusLine {
         let total = read + (number(usage["cache_creation_input_tokens"]) ?? 0) + (number(usage["input_tokens"]) ?? 0)
 
         var limits: [String: Snapshot.Limit] = [:]
-        for kind in ["five_hour", "seven_day"] {
+        for kind in ["five_hour", "seven_day", "spend_limit"] {
             let window = object(object(input["rate_limits"])[kind])
             if let used = number(window["used_percentage"]) {
-                limits[kind] = .init(used: used, resetsAt: number(window["resets_at"]))
+                limits[kind] = .init(
+                    used: used, resetsAt: number(window["resets_at"]),
+                    usedUSD: number(window["used_usd"]), limitUSD: number(window["limit_usd"]),
+                    period: window["period"] as? String)
             }
+        }
+        let model = object(input["model"])
+        // `5m` or `1h`, as Claude Code names the two lifetimes.
+        let ttl: Double? = (cache["ttl"] as? String).flatMap { $0 == "1h" ? 3600 : $0 == "5m" ? 300 : nil }
+        func text(_ value: Any?) -> String? {
+            (value as? String).flatMap { $0.isEmpty ? nil : $0 }
         }
         // Each session holds only its own last reading of the account's limits, so the app
         // needs each reading's age. The command is never told it: the run where a reading
@@ -49,7 +58,12 @@ public enum StatusLine {
                 turnHit: total > 0 ? Int((read * 100 / total).rounded()) : nil,
                 avgHit: number(cache["hit_ratio"]).map { Int(($0 * 100).rounded()) },
                 expiresAt: number(cache["expires_at"]),
-                active: false),
+                active: false,
+                ttl: ttl,
+                recacheTokens: number(cache["recache_tokens_if_cold"]),
+                misses: number(cache["misses"]).map { Int($0) },
+                missRecacheTokens: number(cache["miss_recache_tokens"]),
+                lastMissCauses: object(cache["last_miss_cause"])["causes"] as? [String]),
             limits: limits,
             limitsAt: limitsAt,
             context: .init(
@@ -58,7 +72,13 @@ public enum StatusLine {
                 window: number(context["context_window_size"]) ?? 0,
                 percent: number(context["used_percentage"])),
             costUSD: number(object(input["cost"])["total_cost_usd"]),
-            updatedAt: previous?.updatedAt ?? at.rounded())
+            updatedAt: previous?.updatedAt ?? at.rounded(),
+            name: text(input["session_name"]),
+            model: text(model["display_name"]),
+            modelID: text(model["id"]),
+            effort: text(object(input["effort"])["level"]),
+            fast: input["fast_mode"] as? Bool,
+            worktree: text(object(input["worktree"])["name"]) ?? text(object(input["workspace"])["git_worktree"]))
         // Stamped anew only when a figure moved, so `updatedAt` reads "this session last
         // did something" and the app can tell which session is the live one.
         if snapshot != previous {

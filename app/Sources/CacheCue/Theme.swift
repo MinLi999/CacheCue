@@ -4,21 +4,55 @@ import CacheCueCore
 
 /// The app's palette and surfaces. Every colour follows light and dark appearance.
 enum Palette {
-    private static func adaptive(dark: NSColor, light: NSColor) -> NSColor {
+    /// `strong` is what "Increase contrast" in the system's settings gets: nil keeps the usual pair.
+    private static func adaptive(dark: NSColor, light: NSColor, strong: (dark: NSColor, light: NSColor)? = nil) -> NSColor {
         NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            if let strong, isHighContrast(appearance) {
+                return isDark ? strong.dark : strong.light
+            }
+            return isDark ? dark : light
         }
     }
 
-    static let mintGreen = adaptive(
-        dark: NSColor(red: 0.35, green: 0.82, blue: 0.58, alpha: 1),
-        light: NSColor(red: 0.18, green: 0.62, blue: 0.40, alpha: 1))
-    static let amberOrange = adaptive(
-        dark: NSColor(red: 0.95, green: 0.70, blue: 0.38, alpha: 1),
-        light: NSColor(red: 0.82, green: 0.48, blue: 0.15, alpha: 1))
-    static let roseRed = adaptive(
-        dark: NSColor(red: 0.95, green: 0.45, blue: 0.52, alpha: 1),
-        light: NSColor(red: 0.80, green: 0.22, blue: 0.28, alpha: 1))
+    /// Set by the off-screen render, to draw what "Increase contrast" gets.
+    static var forcesStrong = false
+
+    /// The appearance says so when it is the system's own; one the person chose in the
+    /// app's settings is plain light or dark, and then the system's setting is asked.
+    private static func isHighContrast(_ appearance: NSAppearance) -> Bool {
+        if forcesStrong { return true }
+        let named = appearance.bestMatch(from: [
+            .aqua, .darkAqua, .accessibilityHighContrastAqua, .accessibilityHighContrastDarkAqua,
+        ])
+        return named == .accessibilityHighContrastAqua || named == .accessibilityHighContrastDarkAqua
+            || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+    }
+
+    private static func rgb(_ hex: UInt32) -> NSColor {
+        NSColor(
+            red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1)
+    }
+
+    // The three levels, each in two strengths. Measured against the lightest and the
+    // darkest the popover's translucent surface gets, in both appearances (WCAG 2.2 AA):
+    //
+    // - `tone`, for words and icons: at least 4.5:1 (1.4.3).
+    // - `fill`, for bars, gauges and dots: at least 3:1 (1.4.11), and told apart by someone
+    //   who does not see red and green as different. "Good" is a teal, so it stands off from
+    //   red on the blue-yellow axis that stays; amber is kept yellow and light, red dark.
+    //
+    // The words cannot be made that distinct: dark enough to read on a light surface, amber
+    // and red draw close. They say what they mean in letters and figures; the colour helps.
+    //
+    // With "Increase contrast" on, the words go a step further: at least 7:1 (1.4.6).
+    static let okTone = adaptive(dark: rgb(0x3FD6C0), light: rgb(0x05665E), strong: (rgb(0x8AF0DF), rgb(0x03483F)))
+    static let warnTone = adaptive(dark: rgb(0xF2C037), light: rgb(0x7A5200), strong: (rgb(0xFFD96B), rgb(0x573A00)))
+    static let critTone = adaptive(dark: rgb(0xFF9486), light: rgb(0xA31B14), strong: (rgb(0xFFCCC4), rgb(0x7A0F0A)))
+    static let okFill = adaptive(dark: rgb(0x2CC7B0), light: rgb(0x0C8A7D))
+    static let warnFill = adaptive(dark: rgb(0xF0B429), light: rgb(0xB06C00))
+    static let critFill = adaptive(dark: rgb(0xFF6B5E), light: rgb(0xA31B14))
 
     // The brand: a terracotta crescent, lit on a dark tile and deeper on a light one.
     static let terracottaLight = NSColor(red: 0.906, green: 0.612, blue: 0.459, alpha: 1)
@@ -26,28 +60,45 @@ enum Palette {
 
     // The accent for text and icons. The system's blue goes dull on a dark popover, most of
     // all on a tint of itself, so the dark appearance gets a lighter, brighter blue.
-    static let accent = adaptive(
-        dark: NSColor(red: 0.56, green: 0.80, blue: 1.00, alpha: 1),
-        light: NSColor(red: 0.04, green: 0.40, blue: 0.86, alpha: 1))
-    /// Behind white text, where the bright blue would be too pale to read on.
-    static let accentFill = adaptive(
-        dark: NSColor(red: 0.16, green: 0.50, blue: 0.96, alpha: 1),
-        light: NSColor(red: 0.04, green: 0.40, blue: 0.86, alpha: 1))
+    static let accent = adaptive(dark: rgb(0x92C1FF), light: rgb(0x0054C2), strong: (rgb(0xBFDBFF), rgb(0x003A8C)))
+    /// Behind white text: deep enough in both appearances for the white to read (4.5:1).
+    static let accentFill = adaptive(dark: rgb(0x1F6FE0), light: rgb(0x0054C2))
+    /// Behind white text where something calls for attention: support has answered.
+    static let beacon = rgb(0xC2410C)
+
+    /// Words that are not the main thing. The system's secondary label falls short of
+    /// 4.5:1 on this surface at the sizes used here, so this one is a little stronger.
+    static let secondaryText = adaptive(
+        dark: NSColor.white.withAlphaComponent(0.62), light: NSColor.black.withAlphaComponent(0.62),
+        strong: (NSColor.white.withAlphaComponent(0.80), NSColor.black.withAlphaComponent(0.80)))
 
     static let segmentBg = adaptive(
-        dark: NSColor.white.withAlphaComponent(0.06), light: NSColor.black.withAlphaComponent(0.04))
+        dark: NSColor.white.withAlphaComponent(0.12), light: NSColor.black.withAlphaComponent(0.10),
+        strong: (NSColor.white.withAlphaComponent(0.26), NSColor.black.withAlphaComponent(0.22)))
+    // A card sits a shade above the surface it is on, and has an edge that can be seen.
     static let cardBg = adaptive(
-        dark: NSColor.white.withAlphaComponent(0.02), light: NSColor.black.withAlphaComponent(0.015))
+        dark: NSColor.white.withAlphaComponent(0.05), light: NSColor.white.withAlphaComponent(0.55))
     static let cardBorder = adaptive(
-        dark: NSColor.white.withAlphaComponent(0.04), light: NSColor.black.withAlphaComponent(0.03))
+        dark: NSColor.white.withAlphaComponent(0.10), light: NSColor.black.withAlphaComponent(0.08),
+        strong: (NSColor.white.withAlphaComponent(0.45), NSColor.black.withAlphaComponent(0.40)))
 
-    /// The tone of a level; `plain` has none and takes the caller's default.
+    /// The colour of a level for words and icons; `plain` has none and takes the caller's default.
     static func tone(_ level: Level) -> NSColor? {
         switch level {
         case .plain: return nil
-        case .ok: return mintGreen
-        case .warn: return amberOrange
-        case .crit: return roseRed
+        case .ok: return okTone
+        case .warn: return warnTone
+        case .crit: return critTone
+        }
+    }
+
+    /// The colour of a level for bars, gauges and dots.
+    static func fill(_ level: Level) -> NSColor? {
+        switch level {
+        case .plain: return nil
+        case .ok: return okFill
+        case .warn: return warnFill
+        case .crit: return critFill
         }
     }
 }
@@ -59,8 +110,15 @@ extension Color {
     static let cardBg = Color(nsColor: Palette.cardBg)
     static let cardBorder = Color(nsColor: Palette.cardBorder)
 
+    static let secondaryText = Color(nsColor: Palette.secondaryText)
+    static let beacon = Color(nsColor: Palette.beacon)
+
     static func tone(_ level: Level, default fallback: Color = .primary) -> Color {
         Palette.tone(level).map { Color(nsColor: $0) } ?? fallback
+    }
+
+    static func toneFill(_ level: Level, default fallback: Color = .primary) -> Color {
+        Palette.fill(level).map { Color(nsColor: $0) } ?? fallback
     }
 }
 
@@ -108,5 +166,7 @@ struct BrandMark: View {
             }
         }
         .frame(width: size, height: size)
+        // The name is written beside it wherever it appears.
+        .accessibilityHidden(true)
     }
 }

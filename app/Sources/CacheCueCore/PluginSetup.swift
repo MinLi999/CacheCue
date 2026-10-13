@@ -114,6 +114,56 @@ public enum PluginSetup {
         return (try? copy(bundled: bundled, to: destination)) != nil
     }
 
+    // MARK: Keeping the installed plugin current
+
+    private static func json(_ url: URL) -> [String: Any]? {
+        (try? Data(contentsOf: url)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    }
+
+    /// The version of the plugin in a marketplace folder laid out as this app carries it.
+    static func version(inMarketplace folder: URL) -> String? {
+        json(folder.appendingPathComponent("plugin/.claude-plugin/plugin.json"))?["version"] as? String
+    }
+
+    /// The version Claude Code has on record as installed from this app's marketplace. That
+    /// record points at a copy Claude Code keeps of its own, and the desktop app's sessions
+    /// load that copy, not the marketplace folder.
+    static func installedVersion(home: URL) -> String? {
+        let record = json(home.appendingPathComponent(".claude/plugins/installed_plugins.json"))
+        let entries = (record?["plugins"] as? [String: Any])?["\(pluginName)@\(marketplaceName)"] as? [[String: Any]]
+        return entries?.first?["version"] as? String
+    }
+
+    /// True when the marketplace Claude Code knows as `cachecue` is the folder this app keeps:
+    /// one a person added from GitHub, or from a folder of their own, is theirs to update.
+    static func ownsMarketplace(home: URL) -> Bool {
+        let known = json(home.appendingPathComponent(".claude/plugins/known_marketplaces.json"))
+        let source = (known?[marketplaceName] as? [String: Any])?["source"] as? [String: Any]
+        guard let path = source?["path"] as? String else { return false }
+        return URL(fileURLWithPath: path).standardizedFileURL.path == installedFolder(home: home).standardizedFileURL.path
+    }
+
+    /// The app moved on and Claude Code's installed copy did not: the folder this app keeps
+    /// holds a newer plugin than the one on record. `refresh` only brings the folder along.
+    public static func needsUpdate(home: URL) -> Bool {
+        guard ownsMarketplace(home: home),
+              let offered = version(inMarketplace: installedFolder(home: home)).flatMap(AppVersion.init),
+              let installed = installedVersion(home: home).flatMap(AppVersion.init)
+        else { return false }
+        return offered > installed
+    }
+
+    public static let updateCommand = ["plugin", "update", "\(pluginName)@\(marketplaceName)"]
+
+    /// Has Claude Code bring its installed copy up to the plugin this app now carries, where
+    /// it has fallen behind. Sessions already open keep the old one until they are reopened.
+    /// Blocks while Claude Code runs: call it off the main thread. Returns whether it ran.
+    @discardableResult
+    public static func updateIfBehind(home: URL, claude: URL?) -> Bool {
+        guard needsUpdate(home: home), let claude else { return false }
+        return (try? run(claude, updateCommand))?.status == 0
+    }
+
     // MARK: Installing
 
     /// The two commands that install it, as arguments to Claude Code.

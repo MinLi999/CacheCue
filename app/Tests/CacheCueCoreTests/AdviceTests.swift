@@ -29,6 +29,20 @@ final class AdviceTests: XCTestCase {
         XCTAssertEqual(advice(40_000, percent: 80, .expires(in: 3000)).kind, .nearFull)
     }
 
+    func testAShorterLivedCacheGetsAShorterWindow() {
+        func short(_ left: TimeInterval) -> CompactAdvice {
+            CompactAdvice(contextTokens: 120_000, contextPercent: nil, cache: .expires(in: left), lifetime: 300)
+        }
+        // Ten minutes of warning would cover a five-minute cache's whole life.
+        XCTAssertEqual(short(280).kind, .worthIt)
+        XCTAssertEqual(short(91).kind, .worthIt)
+        XCTAssertEqual(short(90).kind, .beforeExpiry)
+        XCTAssertEqual(short(90).level, .warn)
+        XCTAssertEqual(short(30).level, .crit)
+        XCTAssertEqual(CacheState.warnWindow(lifetime: 3600), CompactAdvice.expiryWindow)
+        XCTAssertEqual(CacheState.critWindow(lifetime: 3600), 120)
+    }
+
     func testWhatIsActionableAndHowLoud() {
         XCTAssertTrue(advice(170_000, percent: 85, .unknown).isActionable)
         XCTAssertTrue(advice(120_000, .expired).isActionable)

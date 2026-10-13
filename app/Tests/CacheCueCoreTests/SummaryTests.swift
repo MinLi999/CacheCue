@@ -40,9 +40,12 @@ final class SummaryTests: XCTestCase {
             nil,
             "When to /compact: Compact at the next stopping point",
             "Every request re-reads 207.0k. Do it between tasks, not mid-task, while the cache is warm.",
+            // The fixture names no model and gives no count of its own, so both are hedged.
+            "Going cold rewrites ~207.0k tokens · ≥20× the price of reading them warm",
             nil,
             "my-app  ·  Desktop  ·  Current session",
-            "47:36 until cache expires",
+            // A desktop session's cache lifetime is the plugin's guess.
+            "47:36 until cache expires  ·  ~1h",
             // The fixture has rate limits, so this is a subscription and the dollars are not a bill.
             "Turn cache hit 97%  ·  Avg cache hit 94%  ·  API-rate value $5.91",
             "Context  207.0k / 1.0M (21%)",
@@ -68,7 +71,7 @@ final class SummaryTests: XCTestCase {
         XCTAssertEqual(summary.current?.name, "my-app")
         XCTAssertEqual(summary.others.map(\.name), ["DraftPipe AI"])
         XCTAssertEqual(Array(summary.rows(.of(.en)).suffix(3)), [
-            nil, "Other sessions", "DraftPipe AI  ·  Terminal   90%   ◷12:03   $3.20",
+            nil, "Other sessions", "DraftPipe AI  ·  Terminal   ❄~207.0k   ◷12:03   $3.20",
         ])
     }
 
@@ -114,6 +117,162 @@ final class SummaryTests: XCTestCase {
         ], now: now)
         XCTAssertNil(summary.fiveHour)
         XCTAssertEqual(summary.titleText, "◷47:36")
+    }
+
+    func testASessionAboutToLoseItsCacheComesFirstWhenAskedTo() {
+        var quiet = snapshot("big", cwd: "/x/Big", updatedAgo: 900, expiresIn: 400)
+        quiet.cache.recacheTokens = 310_000
+        var smaller = snapshot("smaller", cwd: "/x/Smaller", updatedAgo: 700, expiresIn: 200)
+        smaller.cache.recacheTokens = 120_000
+        let snapshots = [snapshot("latest", cwd: "/x/Latest", updatedAgo: 5), quiet, smaller]
+
+        // Left alone, the session that last did something is the one in view.
+        XCTAssertEqual(Summary(snapshots: snapshots, now: now).current?.id, "latest")
+        // Asked to, the one with the most to rewrite of those about to go cold.
+        let urgent = Summary(snapshots: snapshots, now: now, followsUrgent: true)
+        XCTAssertEqual(urgent.current?.id, "big")
+        XCTAssertTrue(urgent.isUrgent)
+        XCTAssertEqual(urgent.others.map(\.id), ["latest", "smaller"])
+        // The person's own choice still wins.
+        let pinned = Summary(snapshots: snapshots, now: now, pinned: "smaller", followsUrgent: true)
+        XCTAssertEqual(pinned.current?.id, "smaller")
+        XCTAssertFalse(pinned.isUrgent)
+        // With nothing about to go cold, it is the latest again.
+        let calm = Summary(snapshots: [snapshot("latest", updatedAgo: 5)], now: now, followsUrgent: true)
+        XCTAssertEqual(calm.current?.id, "latest")
+        XCTAssertFalse(calm.isUrgent)
+    }
+
+    func testAFiveMinuteCacheIsMeasuredAgainstFiveMinutes() {
+        var short = snapshot("a", expiresIn: 150)
+        short.cache.ttl = 300
+        let session = try! XCTUnwrap(Summary(snapshots: [short], now: now).current)
+        XCTAssertEqual(session.lifetime, 300)
+        XCTAssertEqual(session.lifetimeLabel, "~5m")
+        XCTAssertEqual(session.cacheFraction, 0.5)
+        // Half of five minutes left is no cause for alarm; a minute and a half is.
+        XCTAssertEqual(session.cacheLevel, .plain)
+        XCTAssertEqual(session.advice.kind, .worthIt)
+        short.cache.expiresAt = at + 90
+        let late = try! XCTUnwrap(Summary(snapshots: [short], now: now).current)
+        XCTAssertEqual(late.cacheLevel, .warn)
+        XCTAssertEqual(late.advice.kind, .beforeExpiry)
+        short.cache.expiresAt = at + 30
+        XCTAssertEqual(Summary(snapshots: [short], now: now).current?.cacheLevel, .crit)
+        // A session that does not say is taken to have the hour.
+        XCTAssertEqual(Summary(snapshots: [snapshot("b")], now: now).current?.lifetimeLabel, "~1h")
+        // Only the status line command is told the lifetime outright.
+        var told = snapshot("c", source: "terminal")
+        told.cache.ttl = 300
+        XCTAssertEqual(Summary(snapshots: [told], now: now).current?.lifetimeLabel, "5m")
+    }
+
+    func testASessionIsNamedAndDescribedByWhatClaudeCodeSaysOfIt() {
+        var named = snapshot("a")
+        named.name = "auth refactor"
+        named.model = "Opus"
+        named.effort = "high"
+        named.fast = true
+        named.worktree = "auth-fix"
+        let session = try! XCTUnwrap(Summary(snapshots: [named], now: now).current)
+        XCTAssertEqual(session.name, "auth refactor")
+        XCTAssertEqual(session.folder, "my-app")
+        XCTAssertEqual(session.subtitle, "my-app · Opus ⚡ · high · ⎇ auth-fix")
+        // Without a name of its own the folder is the name, and is not said twice.
+        let plain = try! XCTUnwrap(Summary(snapshots: [snapshot("b")], now: now).current)
+        XCTAssertEqual(plain.name, "my-app")
+        XCTAssertEqual(plain.subtitle, "")
+    }
+
+    func testThePluginsNoteSaysWhenATurnIsRunningOrThePersonIsWaitedOn() {
+        let terminal = snapshot("a", source: "terminal", updatedAgo: 30, expiresIn: 3000)
+        func view(_ state: String, ago: Double) -> SessionView? {
+            Summary(
+                snapshots: [terminal], now: now,
+                states: ["a": SessionState(sessionID: "a", state: state, at: at - ago)]).current
+        }
+        XCTAssertEqual(view(SessionState.running, ago: 60)?.cache, .active)
+        XCTAssertEqual(view(SessionState.idle, ago: 20)?.cache, .expires(in: 3000))
+        // A waiting session's clock keeps running: nothing is being sent.
+        XCTAssertEqual(view(SessionState.waiting, ago: 20)?.cache, .expires(in: 3000))
+        XCTAssertEqual(view(SessionState.waiting, ago: 20)?.isWaiting, true)
+        // The session has moved on since it was said to be waiting.
+        XCTAssertEqual(view(SessionState.waiting, ago: 300)?.isWaiting, false)
+        // A turn said to be running, with nothing moving for ten minutes, was interrupted.
+        let quiet = snapshot("a", source: "terminal", updatedAgo: 1200, expiresIn: 2000)
+        let stale = Summary(
+            snapshots: [quiet], now: now,
+            states: ["a": SessionState(sessionID: "a", state: SessionState.running, at: at - 1300)]).current
+        XCTAssertEqual(stale?.cache, .expires(in: 2000))
+    }
+
+    func testAGatewaysSpendLimitStandsInForTheWindows() {
+        let gateway = snapshot("a", limits: ["spend_limit": .init(
+            used: 62.8, resetsAt: at + 86_400, usedUSD: 314.12, limitUSD: 500, period: "monthly")])
+        let summary = Summary(snapshots: [gateway], now: now)
+        XCTAssertTrue(summary.showsSpendLimit)
+        XCTAssertEqual(summary.spendLimit?.percent, 63)
+        XCTAssertEqual(summary.spendLimit?.dollarsText, "$314 / $500")
+        // Only a subscription's two windows make the dollars a value and not a bill.
+        XCTAssertFalse(summary.isSubscription)
+        XCTAssertEqual(summary.rows(.of(.en))[0], "Spend Limit  ▰▰▰▰▰▱▱▱  63% Used  ·  Resets in 1d0h  ·  $314 / $500")
+        XCTAssertFalse(Summary(snapshots: [snapshot("b")], now: now).showsSpendLimit)
+        // A week used evenly would stand where the bar's mark is.
+        let week = Summary(snapshots: [snapshot("b")], now: now).sevenDay
+        let left: Double = 4 * 86400 + 2 * 3600
+        let expected: Double = 1 - left / (7 * 86400)
+        XCTAssertEqual(week?.evenMark ?? 0, expected, accuracy: 0.0001)
+    }
+
+    func testWhatASessionSaysAboutItsCache() throws {
+        let en = Strings.of(.en)
+        var billed = snapshot("a", limits: [:])
+        billed.modelID = "claude-opus-5-5"
+        billed.cache.recacheTokens = 310_000
+        billed.cache.misses = 2
+        billed.cache.missRecacheTokens = 412_000
+        billed.cache.lastMissCauses = ["tools_changed", "something_new"]
+        let session = try XCTUnwrap(Summary(snapshots: [billed], now: now).current)
+        XCTAssertEqual(session.coldLine(en), "Going cold rewrites 310.0k tokens · 40× the price of reading them warm")
+        XCTAssertEqual(session.coldPriceLine(en, isSubscription: false), "At API prices: $2.48 cold, $0.06 warm")
+        // On a subscription the dollars are nobody's bill, so they are not shown.
+        XCTAssertNil(session.coldPriceLine(en, isSubscription: true))
+        XCTAssertEqual(session.missLine(en), "Cache rebuilt 2× unexpectedly · 412.0k tokens rewritten")
+        // A cause Claude Code names that this build does not know is shown as it came.
+        XCTAssertEqual(session.missCauseLine(en), "Last cause: tool definitions changed, something new")
+        XCTAssertNil(session.shortCacheLine(en, isSubscription: true))
+
+        // A session with no misses on record says nothing of them; a small one nothing of cold costs.
+        let quiet = try XCTUnwrap(Summary(snapshots: [snapshot("b")], now: now).current)
+        XCTAssertNil(quiet.missLine(en))
+        XCTAssertNil(quiet.missCauseLine(en))
+        var small = snapshot("c")
+        small.context.tokens = 20_000
+        XCTAssertNil(Summary(snapshots: [small], now: now).current?.coldLine(en))
+        var short = snapshot("d")
+        short.cache.ttl = 300
+        XCTAssertEqual(Summary(snapshots: [short], now: now).current?.shortCacheLine(en, isSubscription: true), en.shortCacheNote)
+    }
+
+    func testTheFiguresAsAScriptReadsThem() throws {
+        var first = snapshot("a")
+        first.modelID = "claude-sonnet-5-5"
+        let data = Summary(snapshots: [first, snapshot("b", updatedAgo: 90, expiresIn: -5)], now: now).json(now: now)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let current = try XCTUnwrap(object["current"] as? [String: Any])
+        XCTAssertEqual(current["cache"] as? String, "warm")
+        XCTAssertEqual(current["expires_in"] as? Int, 2856)
+        XCTAssertEqual(current["advice"] as? String, "worthIt")
+        XCTAssertEqual(current["cold_ratio"] as? Double, 40)
+        XCTAssertEqual(current["model"] as? String, "claude-sonnet-5-5")
+        let others = try XCTUnwrap(object["others"] as? [[String: Any]])
+        XCTAssertEqual(others.first?["cache"] as? String, "expired")
+        XCTAssertEqual(others.first?["actionable"] as? Bool, true)
+        let limits = try XCTUnwrap(object["limits"] as? [String: [String: Any]])
+        XCTAssertEqual(limits["five_hour"]?["resets_in"] as? Int, 38 * 60)
+        // With no session there is still an object to read.
+        let empty = try XCTUnwrap(JSONSerialization.jsonObject(with: Summary(snapshots: [], now: now).json(now: now)) as? [String: Any])
+        XCTAssertNil(empty["current"])
     }
 
     func testCacheStates() {
@@ -180,8 +339,11 @@ final class SummaryTests: XCTestCase {
         try terminal.write(to: directory.appendingPathComponent("t1.json"), atomically: true, encoding: .utf8)
         try desktop.write(to: directory.appendingPathComponent("d1.json"), atomically: true, encoding: .utf8)
         try "{\"v\":1,\"sou".write(to: directory.appendingPathComponent("half.json"), atomically: true, encoding: .utf8)
-        try terminal.replacingOccurrences(of: "\"v\":1", with: "\"v\":2")
+        try terminal.replacingOccurrences(of: "\"v\":1", with: "\"v\":9")
             .write(to: directory.appendingPathComponent("future.json"), atomically: true, encoding: .utf8)
+        // The plugin's note on what a session is doing sits in the same folder and is not a snapshot.
+        try "{\"session_id\":\"t1\",\"state\":\"waiting\",\"at\":1791754460}"
+            .write(to: directory.appendingPathComponent("t1.state.json"), atomically: true, encoding: .utf8)
         try "not a snapshot".write(to: directory.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
 
         let loaded = SnapshotStore.load(from: directory).sorted { $0.sessionID < $1.sessionID }
@@ -193,6 +355,9 @@ final class SummaryTests: XCTestCase {
         XCTAssertNil(loaded[0].limitsAt)
         XCTAssertEqual(loaded[1].cache.expiresAt, 1_791_758_026)
         XCTAssertEqual(SnapshotStore.load(from: directory.appendingPathComponent("missing")), [])
+        XCTAssertEqual(
+            SnapshotStore.loadStates(from: directory),
+            ["t1": SessionState(sessionID: "t1", state: SessionState.waiting, at: 1_791_754_460)])
     }
 
     func testPruneRemovesOnlyOldSnapshots() throws {

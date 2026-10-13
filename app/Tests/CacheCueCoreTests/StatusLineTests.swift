@@ -59,11 +59,51 @@ final class StatusLineTests: XCTestCase {
         XCTAssertEqual(made.cache.turnHit, 94)
     }
 
+    func testWhatClaudeCodeSaysAboutTheCacheTheModelAndTheSessionIsKept() throws {
+        let made = try XCTUnwrap(snapshot(input {
+            $0["prompt_cache"] = [
+                "warm": true, "ttl": "5m", "expires_at": self.at + 240, "hit_ratio": 0.91, "misses": 2,
+                "miss_recache_tokens": 310_200, "recache_tokens_if_cold": 45_000,
+                "last_miss_cause": ["causes": ["tools_changed"], "tools_added": 2, "tools_removed": 0],
+            ] as [String: Any]
+            $0["rate_limits"] = ["spend_limit": [
+                "used_percentage": 62.8, "resets_at": self.at + 86_400, "used_usd": 314.12, "limit_usd": 500,
+                "period": "monthly",
+            ] as [String: Any]]
+            $0["model"] = ["id": "claude-opus-5-5", "display_name": "Opus"]
+            $0["session_name"] = "auth refactor"
+            $0["effort"] = ["level": "high"]
+            $0["fast_mode"] = true
+            $0["worktree"] = ["name": "auth-fix"]
+        }))
+        XCTAssertEqual(made.cache.ttl, 300)
+        XCTAssertEqual(made.cache.recacheTokens, 45_000)
+        XCTAssertEqual(made.cache.misses, 2)
+        XCTAssertEqual(made.cache.missRecacheTokens, 310_200)
+        XCTAssertEqual(made.cache.lastMissCauses, ["tools_changed"])
+        XCTAssertEqual(made.limits, ["spend_limit": .init(
+            used: 62.8, resetsAt: at + 86_400, usedUSD: 314.12, limitUSD: 500, period: "monthly")])
+        XCTAssertEqual(made.name, "auth refactor")
+        XCTAssertEqual(made.model, "Opus")
+        XCTAssertEqual(made.modelID, "claude-opus-5-5")
+        XCTAssertEqual(made.effort, "high")
+        XCTAssertEqual(made.fast, true)
+        XCTAssertEqual(made.worktree, "auth-fix")
+
+        // Right after a compaction Claude Code has no count of what a cold cache rewrites.
+        let compacted = try XCTUnwrap(snapshot(input {
+            $0["prompt_cache"] = ["ttl": "1h", "recache_tokens_if_cold": NSNull(), "last_miss_cause": NSNull()] as [String: Any]
+        }))
+        XCTAssertNil(compacted.cache.recacheTokens)
+        XCTAssertNil(compacted.cache.lastMissCauses)
+        XCTAssertNil(compacted.name)
+    }
+
     func testSnapshot() throws {
         let snapshot = try XCTUnwrap(snapshot(input()))
         XCTAssertEqual(snapshot, Snapshot(
             v: 1, source: "terminal", sessionID: "s1", cwd: "/Users/t/Code/my-app",
-            cache: .init(turnHit: 94, avgHit: 96, expiresAt: at + 2_856, active: false),
+            cache: .init(turnHit: 94, avgHit: 96, expiresAt: at + 2_856, active: false, ttl: 3600),
             limits: [
                 "five_hour": .init(used: 2.3, resetsAt: at + 16_560),
                 "seven_day": .init(used: 76.4, resetsAt: at + 50_160),

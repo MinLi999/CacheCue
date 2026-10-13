@@ -1,13 +1,36 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelUsage, Register, SessionUsage } from 'claude-code'
 
-import type { CacheStats, Figures } from '../types'
+import type { CacheStats, Figures, Limit } from '../types'
 
-// The plugin draws nothing: it only leaves each session's figures where the CacheCue menu
-// bar app reads them.
-const CACHE_TTL_MS = 60 * 60 * 1000
+// The plugin draws nothing: it only leaves each session's figures, and what the session is
+// doing, where the CacheCue menu bar app reads them.
+const HOUR_MS = 60 * 60 * 1000
+const FIVE_MINUTES_MS = 5 * 60 * 1000
+// The windows only a subscription is told; a gateway's spend limit is kept too.
+const PLAN_WINDOWS = ['five_hour', 'seven_day']
+const LIMIT_KINDS = [...PLAN_WINDOWS, 'spend_limit']
+// What Claude Code notifies about when it is the person's move.
+const WAITING_ON = ['permission_prompt', 'idle_prompt', 'agent_needs_input', 'elicitation_dialog']
 // Where the menu bar app looks; the terminal's status line command writes here too.
 const SNAPSHOT_DIR = 'Library/Caches/CacheCue'
+// How often the mod looks for something the menu bar app asked of this session.
+const REQUEST_POLL_MS = 20 * 1000
+// A request older than this was meant for a moment that has passed.
+const REQUEST_FRESH_S = 180
+// What the mod does when the menu bar app asks; the app asks only of a session that says so.
+const ACCEPTS = ['compact']
+
+type SessionActivity = 'running' | 'idle' | 'waiting'
+
+// The last compaction of the main conversation: its two sizes, never what was said.
+type Compaction = {
+  at: number
+  before: number | null
+  after: number | null
+  trigger: string
+  request?: string
+}
 
 const NO_STATS: CacheStats = {
   turnRead: 0,
@@ -43,6 +66,13 @@ const toFigures = (
   usd: usage.cost?.usd,
 })
 
+// The mod is never told how long a cache write lives. A subscription's main conversation
+// gets an hour; an API key, a cloud provider or a gateway gets five minutes. Having a
+// 5-hour or 7-day window is what tells a subscription apart: a guess, and the menu bar app
+// treats it as one.
+const cacheLifetimeMs = (limits: Limit[]): number =>
+  limits.some(limit => PLAN_WINDOWS.includes(limit.kind)) ? HOUR_MS : FIVE_MINUTES_MS
+
 const toEpochSeconds = (iso: string | undefined): number | null => {
   const ms = iso === undefined ? Number.NaN : Date.parse(iso)
 
@@ -65,22 +95,25 @@ async function writeSnapshot($: EngineInterface, isActive: boolean): Promise<voi
     const held = await read($, figures)
     const limits: Record<string, { used: number; resets_at: number | null }> = {}
     for (const limit of held?.limits ?? []) {
-      if (limit.kind === 'five_hour' || limit.kind === 'seven_day') {
+      if (LIMIT_KINDS.includes(limit.kind)) {
         limits[limit.kind] = { used: limit.percentUsed, resets_at: toEpochSeconds(limit.resetsAt) }
       }
     }
+    const lifetime = cacheLifetimeMs(held?.limits ?? [])
     const snapshot = {
+      // Still 1: fields were only added, and an app older than this plugin must keep reading.
       v: 1,
       source: surface ?? 'desktop',
       session_id: id,
       // The project root, which names the session; a shell `cd` mid-session moves cwd, not this.
       cwd: await $.session.root(),
+      model_id: await $.session.model(),
       cache: {
         turn_hit: hitPercent(stats.turnRead, stats.turnTotal),
         avg_hit: hitPercent(stats.sumRead, stats.sumTotal),
-        expires_at:
-          stats.writeAt === null ? null : Math.round((stats.writeAt + CACHE_TTL_MS) / 1000),
+        expires_at: stats.writeAt === null ? null : Math.round((stats.writeAt + lifetime) / 1000),
         active: isActive,
+        ttl: lifetime / 1000,
       },
       limits,
       // The limits are the account's and every session holds its own last reading:
@@ -102,11 +135,192 @@ async function writeSnapshot($: EngineInterface, isActive: boolean): Promise<voi
   }
 }
 
+// What the mod says beside the snapshot (`<session_id>.state.json`): what the session is
+// doing, how many turns it has finished, and how its last compaction went. In a terminal
+// this is all the mod writes: the status line command there is never told whether a turn is
+// running or Claude Code is waiting on the person.
+type Note = {
+  state: SessionActivity
+  turns: number
+  compact: Compaction | null
+  failed: { at: number; request: string } | null
+}
+
+async function writeNote($: EngineInterface, note: Note): Promise<void> {
+  try {
+    const home = await $.env.get('HOME')
+    if (home === undefined) {
+      return
+    }
+    const id = await $.session.id()
+    const file = {
+      session_id: id,
+      state: note.state,
+      at: Math.round((await $.clock.now()) / 1000),
+      turns: note.turns,
+      accepts: ACCEPTS,
+      ...(note.compact === null ? {} : { compact: note.compact }),
+      ...(note.failed === null ? {} : { compact_failed: note.failed }),
+    }
+    await $.fs.write(`${home}/${SNAPSHOT_DIR}/${id}.state.json`, JSON.stringify(file))
+  } catch (error) {
+    $.ui.log(`cachecue: state not written: ${String(error)}`, { to: 'debug' })
+  }
+}
+
+// What the menu bar app asked of this session, if it asked just now. The app decides when;
+// the rules and thresholds are its own.
+async function pendingRequest($: EngineInterface): Promise<string | null> {
+  const home = await $.env.get('HOME')
+  if (home === undefined) {
+    return null
+  }
+  const id = await $.session.id()
+  const path = `${home}/${SNAPSHOT_DIR}/${id}.request.json`
+  if (!(await $.fs.exists(path))) {
+    return null
+  }
+  const request: unknown = JSON.parse(await $.fs.read(path))
+  if (typeof request !== 'object' || request === null) {
+    return null
+  }
+  const { action, session_id: sessionId, id: requestId, at } = request as Record<string, unknown>
+  const now = (await $.clock.now()) / 1000
+  if (
+    action !== 'compact' ||
+    sessionId !== id ||
+    typeof requestId !== 'string' ||
+    typeof at !== 'number' ||
+    now - at > REQUEST_FRESH_S
+  ) {
+    return null
+  }
+
+  return requestId
+}
+
+// What the mod keeps between hooks. A reload starts it over, and reloads fall between turns.
+type Live = {
+  /** Main-thread turn in flight. */
+  isWorking: boolean
+  activity: SessionActivity
+  /** Main-thread turns finished since the mod loaded. */
+  turns: number
+  compaction: Compaction | null
+  /** `turns` as the last compaction ended: until a turn follows, the engine has no size of its own. */
+  turnsAtCompaction: number | null
+  failed: { at: number; request: string } | null
+  /** The request being carried out, and the last one taken up: each is acted on once. */
+  carrying: string | null
+  lastRequest: string | null
+  isWatching: boolean
+}
+
+function say($: EngineInterface, live: Live, state: SessionActivity): Promise<void> {
+  live.activity = state
+
+  return writeNote($, { state, turns: live.turns, compact: live.compaction, failed: live.failed })
+}
+
+// Keeps a compaction's two sizes. Where the engine recorded none, the context as last
+// measured stands for the size before, and the next measure fills in the size after.
+async function noteCompaction(
+  $: EngineInterface,
+  live: Live,
+  trigger: string,
+  before: number | undefined,
+  after: number | undefined,
+): Promise<void> {
+  try {
+    const at = await $.clock.now()
+    const held = await read($, figures)
+    live.compaction = {
+      at: Math.round(at / 1000),
+      before: before ?? held?.tokens ?? null,
+      after: after ?? null,
+      trigger,
+      ...(live.carrying === null ? {} : { request: live.carrying }),
+    }
+    live.failed = null
+    live.turnsAtCompaction = live.turns
+    // The summarising request read the cache, which keeps it for another lifetime.
+    await update($, cache, stats => ({ ...stats, writeAt: at }))
+    if (after !== undefined) {
+      await update($, figures, kept => (kept === null ? kept : { ...kept, tokens: after }))
+    }
+    await say($, live, live.activity)
+    await writeSnapshot($, live.isWorking)
+  } catch (error) {
+    $.ui.log(`cachecue: compaction not noted: ${String(error)}`, { to: 'debug' })
+  }
+}
+
+// Compacts the conversation because the menu bar app asked: the person turned that on
+// for this session there. `$.session.compact` is the direct call; a session with no
+// interface of its own (the desktop app's) refuses it and runs the command instead.
+async function compactFor($: EngineInterface, live: Live, request: string): Promise<void> {
+  live.carrying = request
+  try {
+    let direct: Awaited<ReturnType<typeof $.session.compact>> | null = null
+    try {
+      direct = await $.session.compact()
+    } catch {
+      await $.command.run({ command: 'compact' })
+    }
+    if (direct !== null && direct.skip === undefined) {
+      // The mod's own call does not come through its own hook.
+      await noteCompaction($, live, 'plugin', direct.tokensBefore, direct.tokensAfter)
+    }
+  } catch (error) {
+    $.ui.log(`cachecue: compaction asked for did not run: ${String(error)}`, { to: 'debug' })
+  }
+  // Run as a command, a compaction that stood came through the `session.compact` hook.
+  if (live.compaction?.request !== request) {
+    live.failed = { at: Math.round((await $.clock.now()) / 1000), request }
+    await say($, live, live.activity)
+  }
+  live.carrying = null
+}
+
+function watchRequests($: EngineInterface, live: Live): void {
+  if (live.isWatching) {
+    return
+  }
+  live.isWatching = true
+  $.clock.every(REQUEST_POLL_MS, () => {
+    // Nothing can be compacted while a turn runs, or while one compaction is under way.
+    if (live.isWorking || live.carrying !== null) {
+      return
+    }
+    void (async () => {
+      try {
+        const request = await pendingRequest($)
+        if (request !== null && request !== live.lastRequest) {
+          live.lastRequest = request
+          await compactFor($, live, request)
+        }
+      } catch (error) {
+        $.ui.log(`cachecue: request not read: ${String(error)}`, { to: 'debug' })
+      }
+    })()
+  })
+}
+
 export const register: Register = on => {
-  // Main-thread turn in flight; a reload starts it over, and reloads fall between turns.
-  let isWorking = false
+  const live: Live = {
+    isWorking: false,
+    activity: 'idle',
+    turns: 0,
+    compaction: null,
+    turnsAtCompaction: null,
+    failed: null,
+    carrying: null,
+    lastRequest: null,
+    isWatching: false,
+  }
 
   on('session.start', async ($, e, next) => {
+    watchRequests($, live)
     // What the engine holds as the mod loads is its last reading, of unknown age:
     // keep the time of one the mod itself saw arrive, when it is the same reading.
     const loaded = toFigures(await $.session.usage(), null)
@@ -136,36 +350,75 @@ export const register: Register = on => {
 
   on('session.measure', async ($, e, next) => {
     const at = await $.clock.now()
-    await update($, figures, () => toFigures(e, at))
-    await writeSnapshot($, isWorking)
+    const measured = toFigures(e, at)
+    // Right after a compaction the engine has no size to give until the next response
+    // arrives: the size the compaction itself reported stands, not a nought.
+    const known = live.turnsAtCompaction === live.turns ? live.compaction?.after : null
+    await update($, figures, () =>
+      measured.tokens === undefined && known != null ? { ...measured, tokens: known } : measured,
+    )
+    // The first measure after a compaction says how small the conversation became.
+    if (live.compaction !== null && live.compaction.after === null && e.context.tokens !== undefined) {
+      live.compaction = { ...live.compaction, after: e.context.tokens }
+      await say($, live, live.activity)
+    }
+    await writeSnapshot($, live.isWorking)
 
     return next(e)
   })
 
   on('turn.start', async ($, e, next) => {
-    isWorking = true
+    live.isWorking = true
+    await say($, live, 'running')
     await writeSnapshot($, true)
 
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
-    const usage = e.usage
-    if (e.agentId === undefined && usage !== undefined) {
-      const at = await $.clock.now()
-      const total = inputTokens(usage)
-      await update($, cache, held => ({
-        turnRead: usage.cache_read_input_tokens,
-        turnTotal: total,
-        sumRead: held.sumRead + usage.cache_read_input_tokens,
-        sumTotal: held.sumTotal + total,
-        turnOutput: usage.output_tokens,
-        writeAt: usage.cache_creation_input_tokens > 0 ? at : held.writeAt,
-      }))
-      isWorking = false
+    // A subagent's turn is not the main conversation's.
+    if (e.agentId === undefined) {
+      const usage = e.usage
+      // An interrupted turn ends with no usage to count, and ends all the same.
+      if (usage !== undefined) {
+        const at = await $.clock.now()
+        const total = inputTokens(usage)
+        await update($, cache, held => ({
+          turnRead: usage.cache_read_input_tokens,
+          turnTotal: total,
+          sumRead: held.sumRead + usage.cache_read_input_tokens,
+          sumTotal: held.sumTotal + total,
+          turnOutput: usage.output_tokens,
+          writeAt: usage.cache_creation_input_tokens > 0 ? at : held.writeAt,
+        }))
+        live.turns += 1
+      }
+      live.isWorking = false
+      await say($, live, 'idle')
       await writeSnapshot($, false)
     }
 
     return next(e)
   })
+
+  // Every compaction of the main conversation, whoever asked for it. The event carries the
+  // conversation itself: it is handed on untouched, and only its two sizes are kept.
+  on('session.compact', async ($, e, next) => {
+    const result = await next(e)
+    if (e.agentId === undefined && e.trigger !== 'precompute' && result.skip === undefined) {
+      await noteCompaction($, live, e.trigger, result.tokensBefore, result.tokensAfter)
+    }
+
+    return result
+  }).catch((_, e, next) => next(e))
+
+  // Claude Code's own notifications say when it is the person's move.
+  on('classic.Notification', async ($, e, next) => {
+    if (WAITING_ON.includes(e.notification_type)) {
+      await say($, live, 'waiting')
+    }
+
+    return next(e)
+    // Whatever goes wrong here, the notification itself must still go out.
+  }).catch((_, e, next) => next(e))
 }

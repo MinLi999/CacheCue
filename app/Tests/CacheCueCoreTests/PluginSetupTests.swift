@@ -101,6 +101,66 @@ final class PluginSetupTests: XCTestCase {
         XCTAssertFalse(PluginSetup.refresh(bundled: nil, home: home))
     }
 
+    // MARK: Keeping the installed plugin current
+
+    /// What Claude Code has on record after this app's Connect, with the plugin at `installed`.
+    func recordInstall(version installed: String, marketplace: String? = nil) throws {
+        let folder = marketplace ?? PluginSetup.installedFolder(home: home).path
+        try write(
+            #"{"version":2,"plugins":{"cachecue@cachecue":[{"scope":"user","installPath":"/cache/\#(installed)","version":"\#(installed)"}]}}"#,
+            to: ".claude/plugins/installed_plugins.json")
+        try write(
+            #"{"cachecue":{"source":{"source":"directory","path":"\#(folder)"},"installLocation":"\#(folder)"}}"#,
+            to: ".claude/plugins/known_marketplaces.json")
+    }
+
+    func testClaudeCodeIsAskedToUpdateOnlyWhenItsCopyFellBehindThisApps() throws {
+        let log = home.appendingPathComponent("calls.txt").path
+        try write("#!/bin/sh\necho \"$@\" >> '\(log)'\n", to: "bin/claude", executable: true)
+        let claude = home.appendingPathComponent("bin/claude")
+        // Never connected: there is no folder of this app's, and nothing on record.
+        XCTAssertFalse(PluginSetup.updateIfBehind(home: home, claude: claude))
+
+        // Connected at 0.4.0; the app has since moved its folder on to 0.6.1.
+        let bundled = try XCTUnwrap(PluginSetup.bundled(resources: makeBundle(version: "0.6.1")))
+        try PluginSetup.copy(bundled: bundled, to: PluginSetup.installedFolder(home: home))
+        try recordInstall(version: "0.4.0")
+        XCTAssertEqual(PluginSetup.installedVersion(home: home), "0.4.0")
+        XCTAssertTrue(PluginSetup.needsUpdate(home: home))
+        // With no Claude Code to be found there is nothing to run.
+        XCTAssertFalse(PluginSetup.updateIfBehind(home: home, claude: nil))
+        XCTAssertTrue(PluginSetup.updateIfBehind(home: home, claude: claude))
+        XCTAssertEqual(try String(contentsOfFile: log, encoding: .utf8), "plugin update cachecue@cachecue\n")
+
+        // Level, or ahead of this app: left alone.
+        try recordInstall(version: "0.6.1")
+        XCTAssertFalse(PluginSetup.needsUpdate(home: home))
+        try recordInstall(version: "0.10.0")
+        XCTAssertFalse(PluginSetup.updateIfBehind(home: home, claude: claude))
+        XCTAssertEqual(try String(contentsOfFile: log, encoding: .utf8), "plugin update cachecue@cachecue\n")
+    }
+
+    func testAPluginThePersonInstalledFromElsewhereIsTheirsToUpdate() throws {
+        let bundled = try XCTUnwrap(PluginSetup.bundled(resources: makeBundle(version: "0.6.1")))
+        try PluginSetup.copy(bundled: bundled, to: PluginSetup.installedFolder(home: home))
+        // The marketplace Claude Code knows as `cachecue` is a folder of their own.
+        try recordInstall(version: "0.3.0", marketplace: "/Users/t/Code/CacheCue")
+        XCTAssertFalse(PluginSetup.ownsMarketplace(home: home))
+        XCTAssertFalse(PluginSetup.needsUpdate(home: home))
+        // Added from GitHub, the record has no path at all.
+        try write(#"{"cachecue":{"source":{"source":"github","repo":"elvisli999/CacheCue"}}}"#, to: ".claude/plugins/known_marketplaces.json")
+        XCTAssertFalse(PluginSetup.needsUpdate(home: home))
+    }
+
+    func testAClaudeCodeThatSaysNoIsTriedAgainNextTime() throws {
+        let bundled = try XCTUnwrap(PluginSetup.bundled(resources: makeBundle(version: "0.6.1")))
+        try PluginSetup.copy(bundled: bundled, to: PluginSetup.installedFolder(home: home))
+        try recordInstall(version: "0.4.0")
+        try write("#!/bin/sh\nexit 1\n", to: "bin/claude", executable: true)
+        XCTAssertFalse(PluginSetup.updateIfBehind(home: home, claude: home.appendingPathComponent("bin/claude")))
+        XCTAssertTrue(PluginSetup.needsUpdate(home: home))
+    }
+
     // MARK: Installing
 
     func testInstallCopiesThenRunsClaudeCodeTwice() throws {

@@ -27,6 +27,7 @@ const answerUsage = (
   on('session.usage', () => ({ value: figures }))
   on('session.id', () => ({ value: 's1' }))
   on('session.root', () => ({ value: '/Users/t/project' }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('session.surface', () => ({ value: host.surface ?? 'desktop' }))
   on('fs.write', (_, e) => {
     host.written?.push({ path: e.path, text: e.text })
@@ -37,6 +38,7 @@ const answerUsage = (
   on('session.measure', (_, e) => ({ changed: e.changed }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('turn.complete', (_, e) => ({ text: e.answer }))
+  on('classic.Notification', () => ({}))
 }
 
 const START_INPUT = { cwd: '/tmp', surface: 'desktop', isInteractive: true } as const
@@ -60,6 +62,10 @@ const turn = (
 })
 
 const last = (written: Written[]) => JSON.parse(written.at(-1)?.text ?? '{}')
+
+// What the mod said the session is doing, in the order it said it.
+const states = (written: Written[]) =>
+  written.filter(file => file.path.endsWith('.state.json')).map(file => JSON.parse(file.text))
 
 test('leaves a snapshot for the menu bar, marked active while a turn runs', async ($, on) => {
   const clock = mock.clock(on, { now: START })
@@ -99,11 +105,14 @@ test('leaves a snapshot for the menu bar, marked active while a turn runs', asyn
     source: 'desktop',
     session_id: 's1',
     cwd: '/Users/t/project',
+    model_id: 'claude-opus-5-5',
     cache: {
       turn_hit: 94,
       avg_hit: 94,
+      // A subscription's cache lives an hour from its last write.
       expires_at: (START + 62 * MINUTE) / 1000,
       active: false,
+      ttl: 3600,
     },
     limits: {
       five_hour: { used: 2.3, resets_at: (START + 276 * MINUTE) / 1000 },
@@ -116,14 +125,64 @@ test('leaves a snapshot for the menu bar, marked active while a turn runs', asyn
   })
 })
 
-test('writes no snapshot in a terminal, where the status line command does', async ($, on) => {
-  mock.clock(on, { now: START })
+test('in a terminal it says what the session is doing and leaves the figures to the status line command', async ($, on) => {
+  const clock = mock.clock(on, { now: START })
   const written: Written[] = []
   answerUsage(on, usage(), { surface: 'terminal', written })
   await $.session.start({ ...START_INPUT, surface: 'terminal' })
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await clock.advance(MINUTE)
   await $.turn.complete(turn())
 
-  expect(written).toHaveLength(0)
+  expect(written.map(file => file.path)).toEqual([
+    '/Users/t/Library/Caches/CacheCue/s1.state.json',
+    '/Users/t/Library/Caches/CacheCue/s1.state.json',
+  ])
+  expect(states(written)).toEqual([
+    { session_id: 's1', state: 'running', at: START / 1000, turns: 0, accepts: ['compact'] },
+    { session_id: 's1', state: 'idle', at: (START + MINUTE) / 1000, turns: 1, accepts: ['compact'] },
+  ])
+})
+
+test('an interrupted turn ends too, though it has no usage to count', async ($, on) => {
+  mock.clock(on, { now: START })
+  const written: Written[] = []
+  answerUsage(on, usage(), { written })
+  await $.session.start(START_INPUT)
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await $.turn.complete({ answer: '', durationMs: 500, isAborted: true, turnId: 't1', reason: 'aborted' })
+
+  expect(states(written).at(-1)).toMatchObject({ state: 'idle' })
+  expect(last(written)).toMatchObject({ cache: { active: false, turn_hit: null } })
+})
+
+test('a prompt for permission marks the session as waiting; other notifications do not', async ($, on) => {
+  mock.clock(on, { now: START })
+  const written: Written[] = []
+  answerUsage(on, usage(), { written })
+  await $.session.start(START_INPUT)
+  await $.classic.Notification({ message: 'Signed in', notification_type: 'auth_success' })
+  expect(states(written)).toHaveLength(0)
+
+  await $.classic.Notification({ message: 'Claude needs your permission', notification_type: 'permission_prompt' })
+  expect(states(written)).toEqual([
+    { session_id: 's1', state: 'waiting', at: START / 1000, turns: 0, accepts: ['compact'] },
+  ])
+})
+
+test('without a subscription window the cache is taken to live five minutes', async ($, on) => {
+  mock.clock(on, { now: START })
+  const written: Written[] = []
+  const gateway = [{ kind: 'spend_limit', percentUsed: 62.8, resetsAt: new Date(START + 600 * MINUTE).toISOString() }]
+  answerUsage(on, usage({ rateLimits: gateway }), { written })
+  await $.session.start(START_INPUT)
+  await $.turn.complete(turn())
+
+  expect(last(written)).toMatchObject({
+    cache: { ttl: 300, expires_at: (START + 5 * MINUTE) / 1000 },
+    // A gateway's spend limit rides along with the windows.
+    limits: { spend_limit: { used: 62.8, resets_at: (START + 600 * MINUTE) / 1000 } },
+  })
 })
 
 test('a failed snapshot write does not cost the session its turn', async ($, on) => {
@@ -204,6 +263,131 @@ test('an account that is told no limits leaves them out, not zeros that look lik
     limits_at: null,
     context: { tokens: 0, window: 200_000, percent: null },
     cost_usd: null,
-    cache: { turn_hit: null, avg_hit: null, expires_at: null, active: true },
+    cache: { turn_hit: null, avg_hit: null, expires_at: null, active: true, ttl: 300 },
   })
+})
+
+// The menu bar app's request for this session, as the mod finds it on disk.
+const answerRequest = (on: On, request: Record<string, unknown> | null) => {
+  on('fs.exists', (_, e) => ({ value: request !== null && e.path.endsWith('/s1.request.json') }))
+  on('fs.read', () => ({ value: JSON.stringify(request) }))
+}
+
+const REQUEST = { v: 1, session_id: 's1', action: 'compact', id: 'r1', at: START / 1000 }
+
+test('compacts when the menu bar app asks, once, and says what that took off the context', async ($, on) => {
+  const clock = mock.clock(on, { now: START })
+  const written: Written[] = []
+  answerUsage(on, usage(), { surface: 'terminal', written })
+  answerRequest(on, REQUEST)
+  let compactions = 0
+  on('session.compact', () => {
+    compactions += 1
+
+    return { messages: [{ role: 'user', text: 'summary', toolUses: [] }], tokensBefore: 310_000, tokensAfter: 24_000 }
+  })
+  await $.session.start({ ...START_INPUT, surface: 'terminal' })
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  // Nothing is compacted under a running turn.
+  await clock.advance(MINUTE)
+  expect(compactions).toBe(0)
+
+  await $.turn.complete(turn())
+  await clock.advance(MINUTE)
+  expect(compactions).toBe(1)
+  expect(states(written).at(-1)).toMatchObject({
+    state: 'idle',
+    turns: 1,
+    compact: { before: 310_000, after: 24_000, trigger: 'plugin', request: 'r1' },
+  })
+  expect(states(written).at(-1)).not.toHaveProperty('compact_failed')
+
+  // The same request is not carried out twice.
+  await clock.advance(MINUTE)
+  expect(compactions).toBe(1)
+})
+
+test('a request for another session, or from a moment long past, is left alone', async ($, on) => {
+  const clock = mock.clock(on, { now: START })
+  answerUsage(on, usage())
+  answerRequest(on, { ...REQUEST, at: START / 1000 - 600 })
+  let compactions = 0
+  on('session.compact', () => {
+    compactions += 1
+
+    return { messages: [{ role: 'user', text: 'summary', toolUses: [] }] }
+  })
+  await $.session.start(START_INPUT)
+  await clock.advance(MINUTE)
+  expect(compactions).toBe(0)
+})
+
+test('where the direct call is refused it runs the command, and says so when that fails too', async ($, on) => {
+  const clock = mock.clock(on, { now: START })
+  const written: Written[] = []
+  answerUsage(on, usage(), { written })
+  answerRequest(on, REQUEST)
+  const commands: string[] = []
+  on('session.compact', () => {
+    throw new Error('not available in a headless session yet')
+  })
+  on('command.run', (_, e) => {
+    commands.push(e.command)
+
+    return { text: 'Error during compaction' }
+  })
+  await $.session.start(START_INPUT)
+  await clock.advance(MINUTE)
+
+  expect(commands).toEqual(['compact'])
+  expect(states(written).at(-1)).toMatchObject({ compact_failed: { request: 'r1' } })
+  expect(states(written).at(-1)).not.toHaveProperty('compact')
+})
+
+test('a compaction the person ran is noted too; a size the engine did not record comes from the measures around it', async ($, on) => {
+  const clock = mock.clock(on, { now: START })
+  const written: Written[] = []
+  answerUsage(on, usage(), { written })
+  answerRequest(on, null)
+  on('session.compact', () => ({ messages: [{ role: 'user', text: 'summary', toolUses: [] }] }))
+  await $.session.start(START_INPUT)
+  await $.session.compact({ trigger: 'manual', messages: [{ role: 'user', text: 'hello', toolUses: [] }] })
+  expect(states(written).at(-1)).toMatchObject({
+    compact: { at: START / 1000, before: 68_600, after: null, trigger: 'manual' },
+  })
+  expect(states(written).at(-1)?.compact).not.toHaveProperty('request')
+  // The summarising request read the cache: its countdown starts over.
+  expect(last(written.filter(file => !file.path.endsWith('.state.json')))).toMatchObject({
+    cache: { expires_at: START / 1000 + 3600 },
+  })
+
+  await clock.advance(MINUTE)
+  const after = usage({ context: { tokens: 21_000, window: 1_000_000, percent: 2 } })
+  await $.session.measure({ context: after.context, rateLimits: after.rateLimits, cost: after.cost, changed: ['context'] })
+  expect(states(written).at(-1)).toMatchObject({ compact: { before: 68_600, after: 21_000 } })
+})
+
+test('after a compaction the context keeps the size it reported until a turn gives a new one', async ($, on) => {
+  mock.clock(on, { now: START })
+  const written: Written[] = []
+  answerUsage(on, usage({ context: { tokens: 126_848, window: 1_000_000, percent: 13 } }), { written })
+  answerRequest(on, null)
+  on('session.compact', () => ({
+    messages: [{ role: 'user', text: 'summary', toolUses: [] }],
+    tokensBefore: 126_848,
+    tokensAfter: 10_320,
+  }))
+  await $.session.start(START_INPUT)
+  await $.session.compact({ trigger: 'manual', messages: [{ role: 'user', text: 'hello', toolUses: [] }] })
+  // What the engine measures next has no size in it yet.
+  const blank = usage({ context: { window: 1_000_000 } })
+  await $.session.measure({ context: blank.context, rateLimits: blank.rateLimits, cost: blank.cost, changed: ['context'] })
+  const snapshots = () => written.filter(file => !file.path.endsWith('.state.json'))
+  expect(last(snapshots())).toMatchObject({ context: { tokens: 10_320 } })
+
+  // Once a turn has run, a measure with no size means what it says.
+  await $.turn.start({ text: 'go', turnId: 't1' })
+  await $.turn.complete(turn())
+  await $.session.measure({ context: blank.context, rateLimits: blank.rateLimits, cost: blank.cost, changed: ['context'] })
+  expect(last(snapshots())).toMatchObject({ context: { tokens: 0 } })
 })
